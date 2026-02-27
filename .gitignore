@@ -1,0 +1,50 @@
+# 의존성
+node_modules/
+.pnp
+.pnp.js
+
+# 빌드 결과물
+.next/
+dist/
+build/
+out/
+
+# TypeScript
+*.tsbuildinfo
+
+# Next.js
+next-env.d.ts
+
+# 환경 변수
+.env
+.env.*
+!.env.example
+
+# Agent Team worktrees
+.worktrees/
+
+# Claude Code 개인 설정
+.claude/settings.local.json
+.claude/.pipeline-state
+
+# DB (로컬)
+*.db
+*.sqlite
+
+# 로그
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# 테스트 결과
+coverage/
+playwright-report/
+test-results/

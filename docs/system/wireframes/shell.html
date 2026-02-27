@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortex — 글로벌 레이아웃 셸</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Noto Serif KR + Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            canvas: '#F8F7F4',
+            card: '#FFFFFF',
+            surface: '#F3F2EF',
+            'border-default': '#E5E3DF',
+            'border-subtle': '#F0EFEC',
+            primary: '#1A1A1A',
+            secondary: '#5C5C5C',
+            muted: '#9E9E9E',
+            'tech-bg': '#EBF2FF',
+            'tech-text': '#1D4ED8',
+            'tech-accent': '#2563EB',
+            'world-bg': '#ECFDF5',
+            'world-text': '#065F46',
+            'world-accent': '#059669',
+            'culture-bg': '#F5F3FF',
+            'culture-text': '#5B21B6',
+            'culture-accent': '#7C3AED',
+            'toronto-bg': '#FFF7ED',
+            'toronto-text': '#C2410C',
+            'toronto-accent': '#EA580C',
+            'serendipity-bg': '#FFFBEB',
+            'serendipity-text': '#92400E',
+            'serendipity-accent': '#D97706',
+          },
+          fontFamily: {
+            display: ['Noto Serif KR', 'Georgia', 'serif'],
+            body: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #F8F7F4;
+      color: #1A1A1A;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Noto Serif KR', Georgia, serif;
+    }
+
+    /* 카드 왼쪽 채널 보더 */
+    .channel-border-tech    { border-left: 4px solid #2563EB; }
+    .channel-border-world   { border-left: 4px solid #059669; }
+    .channel-border-culture { border-left: 4px solid #7C3AED; }
+    .channel-border-toronto { border-left: 4px solid #EA580C; }
+    .channel-border-serendipity { border-left: 4px solid #D97706; }
+
+    /* 피드백 버튼 활성 상태 */
+    .feedback-btn {
+      transition: background-color 0.15s ease, color 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .feedback-btn:active {
+      transform: scale(0.96);
+    }
+    .feedback-btn.active-like {
+      background-color: #DBEAFE !important;
+      color: #2563EB !important;
+    }
+    .feedback-btn.active-dislike {
+      background-color: #FEE2E2 !important;
+      color: #DC2626 !important;
+    }
+    .feedback-btn.active-save {
+      background-color: #FEF3C7 !important;
+      color: #D97706 !important;
+    }
+    .feedback-btn.active-memo {
+      background-color: #F5F3FF !important;
+      color: #7C3AED !important;
+    }
+
+    /* 사이드바 활성 메뉴 */
+    .nav-item.active {
+      background-color: #EBF2FF;
+      color: #1D4ED8;
+      border-left: 3px solid #2563EB;
+    }
+    .nav-item:not(.active):hover {
+      background-color: #F3F2EF;
+    }
+
+    /* 하단 탭 활성 */
+    .tab-item.active { color: #2563EB; }
+    .tab-item:not(.active) { color: #9E9E9E; }
+
+    /* 카드 호버 (데스크톱) */
+    @media (hover: hover) {
+      .briefing-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+      }
+    }
+
+    /* 스켈레톤 애니메이션 */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .skeleton { animation: pulse 1.5s ease-in-out infinite; }
+
+    /* 섹션 전환 애니메이션 */
+    .section-content {
+      display: none;
+    }
+    .section-content.active {
+      display: block;
+    }
+
+    /* 콘텐츠 영역 하단 패딩 (하단 탭 바 보정) */
+    .main-scroll {
+      padding-bottom: 80px;
+    }
+
+    @media (min-width: 1024px) {
+      .main-scroll {
+        padding-bottom: 24px;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-canvas min-h-screen">
+
+<!-- =====================================================
+     레이아웃 데모 컨트롤 패널 (와이어프레임 확인용)
+     ===================================================== -->
+<div class="fixed top-0 right-0 z-50 p-3 flex gap-2" id="demo-controls">
+  <button
+    onclick="showSection('briefing')"
+    class="text-xs px-3 py-1.5 rounded-full border border-border-default bg-white text-secondary hover:bg-surface transition-colors"
+    id="btn-briefing"
+  >
+    오늘 브리핑
+  </button>
+  <button
+    onclick="showSection('loading')"
+    class="text-xs px-3 py-1.5 rounded-full border border-border-default bg-white text-secondary hover:bg-surface transition-colors"
+    id="btn-loading"
+  >
+    로딩 상태
+  </button>
+  <button
+    onclick="showSection('empty')"
+    class="text-xs px-3 py-1.5 rounded-full border border-border-default bg-white text-secondary hover:bg-surface transition-colors"
+    id="btn-empty"
+  >
+    빈 상태
+  </button>
+</div>
+
+<!-- =====================================================
+     데스크톱: 좌측 사이드바 + 메인 레이아웃
+     ===================================================== -->
+<div class="hidden lg:flex min-h-screen">
+
+  <!-- 좌측 사이드바 -->
+  <aside class="w-56 bg-card border-r border-border-default flex flex-col fixed top-0 left-0 h-full z-30">
+
+    <!-- 앱 로고 -->
+    <div class="px-5 py-5 border-b border-border-default">
+      <h1 class="font-display text-xl font-bold text-primary tracking-tight">Cortex</h1>
+      <p class="text-xs text-muted mt-0.5">개인 AI 브리핑</p>
+    </div>
+
+    <!-- 네비게이션 메뉴 -->
+    <nav class="flex-1 py-3">
+      <button onclick="setActiveNav(this)" class="nav-item active w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-left transition-colors">
+        <span class="text-base">🏠</span>
+        <span>홈</span>
+      </button>
+      <button onclick="setActiveNav(this)" class="nav-item w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-left text-secondary transition-colors">
+        <span class="text-base">📚</span>
+        <span>히스토리</span>
+      </button>
+      <button onclick="setActiveNav(this)" class="nav-item w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-left text-secondary transition-colors">
+        <span class="text-base">👤</span>
+        <span>프로필</span>
+      </button>
+      <button onclick="setActiveNav(this)" class="nav-item w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-left text-secondary transition-colors">
+        <span class="text-base">⚙️</span>
+        <span>설정</span>
+      </button>
+      <button onclick="setActiveNav(this)" class="nav-item w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-left text-secondary transition-colors">
+        <span class="text-base">📊</span>
+        <span>인사이트</span>
+        <span class="ml-auto text-xs bg-surface text-muted px-1.5 py-0.5 rounded">Phase 4</span>
+      </button>
+    </nav>
+
+    <!-- 사용자 정보 + 로그아웃 -->
+    <div class="px-5 py-4 border-t border-border-default">
+      <p class="text-sm font-medium text-primary">jsong1230</p>
+      <button class="text-xs text-muted mt-1 hover:text-secondary transition-colors">로그아웃</button>
+    </div>
+  </aside>
+
+  <!-- 데스크톱 메인 콘텐츠 -->
+  <main class="flex-1 ml-56 min-h-screen py-8">
+    <div class="max-w-reading mx-auto px-6">
+
+      <!-- 브리핑 헤더 -->
+      <div class="mb-6">
+        <h2 class="font-display text-2xl font-bold text-primary tracking-tight">오늘의 브리핑</h2>
+        <p class="text-sm text-secondary mt-1">2026년 2월 27일 목요일 · 매일 07:00 발송</p>
+      </div>
+
+      <!-- === 정상 상태: 브리핑 카드 목록 === -->
+      <div class="section-content active" id="section-briefing-desktop">
+
+        <!-- TECH 카드 -->
+        <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-tech mb-3 overflow-hidden transition-shadow duration-150">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-tech-bg text-tech-text">🖥️ TECH</span>
+                <span class="text-xs text-secondary font-medium">Hacker News</span>
+              </div>
+              <span class="text-xs text-muted whitespace-nowrap">06:45</span>
+            </div>
+
+            <h3 class="font-display text-lg font-bold text-primary leading-snug mb-2 cursor-pointer hover:text-tech-accent transition-colors">
+              Anthropic의 Claude 4 출시 — 에이전트 추론 능력 대폭 향상, GPT-4o 대비 코딩 벤치마크 18% 앞서
+            </h3>
+
+            <p class="text-sm text-secondary leading-relaxed mb-3">
+              Anthropic이 Claude 4 시리즈를 공개했다. 특히 에이전트 파이프라인에서의 멀티스텝 추론이 크게 개선되었으며, HumanEval 기준 92.3%로 현재 최상위 성능을 기록했다.
+            </p>
+
+            <!-- My Life OS 컨텍스트 힌트 -->
+            <div class="flex items-center gap-2 px-3 py-2 rounded-md bg-serendipity-bg border border-amber-200 mb-3">
+              <span class="text-sm">💡</span>
+              <p class="text-xs text-serendipity-text">지난주 메모: "LLM 인프라 비용" 관련 아티클</p>
+            </div>
+
+            <!-- 피드백 버튼 행 -->
+            <div class="flex gap-1.5">
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="like">
+                <span class="text-base">👍</span>
+                <span>좋아요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="dislike">
+                <span class="text-base">👎</span>
+                <span>싫어요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="save">
+                <span class="text-base">🔖</span>
+                <span>저장</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="memo">
+                <span class="text-base">💬</span>
+                <span>메모</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- WORLD 카드 -->
+        <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-world mb-3 overflow-hidden transition-shadow duration-150">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-world-bg text-world-text">🌍 WORLD</span>
+                <span class="text-xs text-secondary font-medium">연합뉴스</span>
+              </div>
+              <span class="text-xs text-muted whitespace-nowrap">06:30</span>
+            </div>
+
+            <h3 class="font-display text-lg font-bold text-primary leading-snug mb-2 cursor-pointer hover:text-world-accent transition-colors">
+              한국 기준금리 3.25%로 0.25%p 인하 — 내수 진작 위해 5분기 만에 완화 전환
+            </h3>
+
+            <p class="text-sm text-secondary leading-relaxed mb-3">
+              한국은행이 오늘 금통위에서 기준금리를 3.50%에서 3.25%로 인하했다. 수출 둔화와 내수 침체가 지속되는 상황에서 경기 부양이 필요하다는 판단에 따른 것으로, 부동산 시장 과열 우려도 일부 상존한다.
+            </p>
+
+            <div class="flex gap-1.5">
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="like">
+                <span class="text-base">👍</span>
+                <span>좋아요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="dislike">
+                <span class="text-base">👎</span>
+                <span>싫어요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="save">
+                <span class="text-base">🔖</span>
+                <span>저장</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="memo">
+                <span class="text-base">💬</span>
+                <span>메모</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- CULTURE 카드 -->
+        <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-culture mb-3 overflow-hidden transition-shadow duration-150">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-culture-bg text-culture-text">🎬 CULTURE</span>
+                <span class="text-xs text-secondary font-medium">넷플릭스 + 네이버 실검</span>
+              </div>
+              <span class="text-xs text-muted whitespace-nowrap">06:30</span>
+            </div>
+
+            <h3 class="font-display text-lg font-bold text-primary leading-snug mb-2 cursor-pointer hover:text-culture-accent transition-colors">
+              넷플릭스 한국 1위: &ldquo;폭싹 속았수다&rdquo; — 실검 급상승: 아이유, 박보검 주연
+            </h3>
+
+            <p class="text-sm text-secondary leading-relaxed mb-3">
+              제주 방언을 제목으로 한 드라마가 공개 2일 만에 한국 1위에 올랐다. 아이유·박보검 조합과 감성 멜로 연출로 SNS에서 화제. 네이버 실검 1~3위를 차지하며 이번 주 대화 소재로 자리잡았다.
+            </p>
+
+            <div class="flex gap-1.5">
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="like">
+                <span class="text-base">👍</span>
+                <span>좋아요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="dislike">
+                <span class="text-base">👎</span>
+                <span>싫어요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="save">
+                <span class="text-base">🔖</span>
+                <span>저장</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="memo">
+                <span class="text-base">💬</span>
+                <span>메모</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- TORONTO 카드 -->
+        <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-toronto mb-3 overflow-hidden transition-shadow duration-150">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-toronto-bg text-toronto-text">🍁 TORONTO</span>
+                <span class="text-xs text-secondary font-medium">날씨 + CBC</span>
+              </div>
+              <span class="text-xs text-muted whitespace-nowrap">06:30</span>
+            </div>
+
+            <!-- 날씨 인라인 배너 -->
+            <div class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-toronto-bg mb-3 text-sm">
+              <span class="text-xl">☁️</span>
+              <div>
+                <span class="font-semibold text-toronto-text">-3°C</span>
+                <span class="text-toronto-text opacity-80 mx-1">·</span>
+                <span class="text-toronto-text opacity-80 text-xs">최고 2°C / 최저 -9°C</span>
+                <span class="text-toronto-text opacity-80 mx-1">·</span>
+                <span class="text-toronto-text opacity-80 text-xs">흐리고 가끔 눈</span>
+              </div>
+            </div>
+
+            <h3 class="font-display text-lg font-bold text-primary leading-snug mb-2 cursor-pointer hover:text-toronto-accent transition-colors">
+              온타리오 주 전기요금 18% 인상 검토 — 2027년 시행 예정, 이민자 밀집 지역 영향 클 듯
+            </h3>
+
+            <p class="text-sm text-secondary leading-relaxed mb-3">
+              온타리오 주정부가 노후 원전 개선 비용을 전기요금에 반영하는 방안을 검토 중이다. 월 평균 $30~45 상승 예상. 미시사가, 브램턴 등 한인 밀집 지역 가정에 직접적인 영향이 우려된다.
+            </p>
+
+            <div class="flex gap-1.5">
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="like">
+                <span class="text-base">👍</span>
+                <span>좋아요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="dislike">
+                <span class="text-base">👎</span>
+                <span>싫어요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="save">
+                <span class="text-base">🔖</span>
+                <span>저장</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="memo">
+                <span class="text-base">💬</span>
+                <span>메모</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- 세렌디피티 카드 -->
+        <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-serendipity mb-3 overflow-hidden transition-shadow duration-150">
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-serendipity-bg text-serendipity-text">🎲 세렌디피티</span>
+                <span class="text-xs text-secondary font-medium">arXiv</span>
+              </div>
+              <span class="text-xs text-muted whitespace-nowrap">06:30</span>
+            </div>
+
+            <h3 class="font-display text-lg font-bold text-primary leading-snug mb-2 cursor-pointer hover:text-serendipity-accent transition-colors">
+              음악과 수학의 관계 — 바흐 푸가에서 발견한 위상수학적 구조
+            </h3>
+
+            <p class="text-sm text-secondary leading-relaxed mb-3">
+              MIT 수학과 연구팀이 바흐의 푸가 BWV 846을 위상수학 관점에서 분석한 논문을 발표했다. 성부 간 화성 진행이 클라인 병(Klein bottle)과 동형임을 증명해, 음악 이론과 현대 수학의 연결을 새롭게 해석했다.
+            </p>
+
+            <div class="flex gap-1.5">
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="like">
+                <span class="text-base">👍</span>
+                <span>좋아요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="dislike">
+                <span class="text-base">👎</span>
+                <span>싫어요</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="save">
+                <span class="text-base">🔖</span>
+                <span>저장</span>
+              </button>
+              <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium" data-type="memo">
+                <span class="text-base">💬</span>
+                <span>메모</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+      </div><!-- end section-briefing-desktop -->
+
+      <!-- === 로딩 상태 === -->
+      <div class="section-content" id="section-loading-desktop">
+        <div class="space-y-3">
+          <!-- 스켈레톤 카드 x3 -->
+          <div class="bg-card rounded-xl border border-border-default p-5 skeleton">
+            <div class="flex gap-2 mb-4">
+              <div class="w-16 h-5 bg-surface rounded-md"></div>
+              <div class="w-20 h-5 bg-surface rounded-md"></div>
+            </div>
+            <div class="w-4/5 h-5 bg-surface rounded mb-2"></div>
+            <div class="w-3/5 h-5 bg-surface rounded mb-4"></div>
+            <div class="w-full h-10 bg-surface rounded mb-3"></div>
+            <div class="flex gap-1.5">
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            </div>
+          </div>
+          <div class="bg-card rounded-xl border border-border-default p-5 skeleton">
+            <div class="flex gap-2 mb-4">
+              <div class="w-16 h-5 bg-surface rounded-md"></div>
+              <div class="w-24 h-5 bg-surface rounded-md"></div>
+            </div>
+            <div class="w-full h-5 bg-surface rounded mb-2"></div>
+            <div class="w-2/3 h-5 bg-surface rounded mb-4"></div>
+            <div class="w-full h-10 bg-surface rounded mb-3"></div>
+            <div class="flex gap-1.5">
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            </div>
+          </div>
+          <div class="bg-card rounded-xl border border-border-default p-5 skeleton">
+            <div class="flex gap-2 mb-4">
+              <div class="w-20 h-5 bg-surface rounded-md"></div>
+              <div class="w-16 h-5 bg-surface rounded-md"></div>
+            </div>
+            <div class="w-3/4 h-5 bg-surface rounded mb-2"></div>
+            <div class="w-4/5 h-5 bg-surface rounded mb-4"></div>
+            <div class="w-full h-10 bg-surface rounded mb-3"></div>
+            <div class="flex gap-1.5">
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+              <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </div><!-- end section-loading-desktop -->
+
+      <!-- === 빈 상태 === -->
+      <div class="section-content" id="section-empty-desktop">
+        <div class="flex flex-col items-center justify-center py-20 text-center">
+          <span class="text-5xl mb-4">🌅</span>
+          <h3 class="font-display text-xl font-bold text-primary mb-2">아직 오늘 브리핑이 없어요</h3>
+          <p class="text-sm text-secondary mb-6 max-w-xs leading-relaxed">매일 오전 07:00에 텔레그램으로 브리핑이 발송됩니다. 내일 아침 다시 확인해보세요.</p>
+          <button class="px-5 py-2.5 rounded-lg bg-tech-bg text-tech-text text-sm font-medium hover:bg-blue-100 transition-colors">
+            어제 브리핑 보기
+          </button>
+        </div>
+      </div><!-- end section-empty-desktop -->
+
+    </div>
+  </main>
+</div><!-- end 데스크톱 레이아웃 -->
+
+
+<!-- =====================================================
+     모바일: 헤더 + 메인 + 하단 탭 바
+     ===================================================== -->
+<div class="lg:hidden flex flex-col min-h-screen">
+
+  <!-- 상단 헤더 -->
+  <header class="sticky top-0 z-30 h-14 bg-card border-b border-border-default flex items-center justify-between px-4">
+    <h1 class="font-display text-xl font-bold text-primary tracking-tight">Cortex</h1>
+    <span class="text-xs text-secondary">2026년 2월 27일 목</span>
+  </header>
+
+  <!-- 메인 스크롤 콘텐츠 -->
+  <main class="flex-1 main-scroll px-4 pt-5">
+
+    <!-- === 정상 상태: 브리핑 카드 === -->
+    <div class="section-content active" id="section-briefing-mobile">
+
+      <div class="mb-4">
+        <h2 class="text-base font-semibold text-secondary">오늘의 브리핑</h2>
+      </div>
+
+      <!-- TECH 카드 -->
+      <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-tech mb-3 overflow-hidden">
+        <div class="p-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-tech-bg text-tech-text">🖥️ TECH</span>
+              <span class="text-xs text-secondary">Hacker News</span>
+            </div>
+            <span class="text-xs text-muted">06:45</span>
+          </div>
+
+          <h3 class="font-display text-base font-bold text-primary leading-snug mb-2">
+            Anthropic의 Claude 4 출시 — 에이전트 추론 능력 대폭 향상, 코딩 벤치마크 18% 우위
+          </h3>
+
+          <p class="text-sm text-secondary leading-relaxed mb-2.5">
+            에이전트 파이프라인에서의 멀티스텝 추론이 크게 개선. HumanEval 기준 92.3%로 현재 최상위 성능.
+          </p>
+
+          <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-serendipity-bg border border-amber-200 mb-3">
+            <span class="text-xs">💡</span>
+            <p class="text-xs text-serendipity-text">지난주 메모: "LLM 인프라 비용" 관련</p>
+          </div>
+
+          <div class="flex gap-1.5">
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="like">
+              <span class="text-sm">👍</span>
+              <span>좋아요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="dislike">
+              <span class="text-sm">👎</span>
+              <span>싫어요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="save">
+              <span class="text-sm">🔖</span>
+              <span>저장</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="memo">
+              <span class="text-sm">💬</span>
+              <span>메모</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- WORLD 카드 -->
+      <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-world mb-3 overflow-hidden">
+        <div class="p-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-world-bg text-world-text">🌍 WORLD</span>
+              <span class="text-xs text-secondary">연합뉴스</span>
+            </div>
+            <span class="text-xs text-muted">06:30</span>
+          </div>
+
+          <h3 class="font-display text-base font-bold text-primary leading-snug mb-2">
+            한국 기준금리 3.25%로 0.25%p 인하 — 5분기 만에 완화 전환
+          </h3>
+
+          <p class="text-sm text-secondary leading-relaxed mb-3">
+            한국은행이 금통위에서 기준금리를 3.50%→3.25%로 인하. 수출 둔화·내수 침체 대응, 부동산 과열 우려 병존.
+          </p>
+
+          <div class="flex gap-1.5">
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="like">
+              <span class="text-sm">👍</span>
+              <span>좋아요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="dislike">
+              <span class="text-sm">👎</span>
+              <span>싫어요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="save">
+              <span class="text-sm">🔖</span>
+              <span>저장</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="memo">
+              <span class="text-sm">💬</span>
+              <span>메모</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- TORONTO 카드 (날씨 포함) -->
+      <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-toronto mb-3 overflow-hidden">
+        <div class="p-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-toronto-bg text-toronto-text">🍁 TORONTO</span>
+              <span class="text-xs text-secondary">날씨 + CBC</span>
+            </div>
+            <span class="text-xs text-muted">06:30</span>
+          </div>
+
+          <!-- 날씨 배너 -->
+          <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-toronto-bg mb-3">
+            <span class="text-lg">☁️</span>
+            <div class="text-xs">
+              <span class="font-semibold text-toronto-text">-3°C</span>
+              <span class="text-toronto-text opacity-70 mx-1">·</span>
+              <span class="text-toronto-text opacity-70">최고 2°C / 최저 -9°C · 흐리고 가끔 눈</span>
+            </div>
+          </div>
+
+          <h3 class="font-display text-base font-bold text-primary leading-snug mb-2">
+            온타리오 주 전기요금 18% 인상 검토 — 2027년 시행, 이민자 밀집 지역 영향 클 듯
+          </h3>
+
+          <p class="text-sm text-secondary leading-relaxed mb-3">
+            노후 원전 개선 비용 반영. 월 평균 $30~45 상승 예상. 미시사가·브램턴 한인 가정 직접 영향 우려.
+          </p>
+
+          <div class="flex gap-1.5">
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="like">
+              <span class="text-sm">👍</span>
+              <span>좋아요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="dislike">
+              <span class="text-sm">👎</span>
+              <span>싫어요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="save">
+              <span class="text-sm">🔖</span>
+              <span>저장</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="memo">
+              <span class="text-sm">💬</span>
+              <span>메모</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- 세렌디피티 카드 -->
+      <article class="briefing-card bg-card rounded-xl border border-border-default shadow-sm channel-border-serendipity mb-3 overflow-hidden">
+        <div class="p-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-serendipity-bg text-serendipity-text">🎲 세렌디피티</span>
+              <span class="text-xs text-secondary">arXiv</span>
+            </div>
+            <span class="text-xs text-muted">06:30</span>
+          </div>
+
+          <h3 class="font-display text-base font-bold text-primary leading-snug mb-2">
+            음악과 수학의 관계 — 바흐 푸가에서 발견한 위상수학적 구조
+          </h3>
+
+          <p class="text-sm text-secondary leading-relaxed mb-3">
+            MIT 수학과가 바흐 BWV 846을 위상수학 관점에서 분석. 화성 진행이 클라인 병과 동형임을 증명.
+          </p>
+
+          <div class="flex gap-1.5">
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="like">
+              <span class="text-sm">👍</span>
+              <span>좋아요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="dislike">
+              <span class="text-sm">👎</span>
+              <span>싫어요</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="save">
+              <span class="text-sm">🔖</span>
+              <span>저장</span>
+            </button>
+            <button class="feedback-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-surface text-secondary text-xs font-medium min-h-[44px]" data-type="memo">
+              <span class="text-sm">💬</span>
+              <span>메모</span>
+            </button>
+          </div>
+        </div>
+      </article>
+
+    </div><!-- end section-briefing-mobile -->
+
+    <!-- === 로딩 상태 === -->
+    <div class="section-content" id="section-loading-mobile">
+      <div class="mb-4">
+        <div class="w-24 h-4 bg-surface rounded skeleton"></div>
+      </div>
+      <div class="space-y-3">
+        <div class="bg-card rounded-xl border border-border-default p-4 skeleton">
+          <div class="flex gap-2 mb-3">
+            <div class="w-14 h-4 bg-surface rounded-md"></div>
+            <div class="w-16 h-4 bg-surface rounded-md"></div>
+          </div>
+          <div class="w-full h-4 bg-surface rounded mb-1.5"></div>
+          <div class="w-4/5 h-4 bg-surface rounded mb-3"></div>
+          <div class="w-full h-8 bg-surface rounded mb-2.5"></div>
+          <div class="flex gap-1.5">
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+          </div>
+        </div>
+        <div class="bg-card rounded-xl border border-border-default p-4 skeleton">
+          <div class="flex gap-2 mb-3">
+            <div class="w-16 h-4 bg-surface rounded-md"></div>
+            <div class="w-20 h-4 bg-surface rounded-md"></div>
+          </div>
+          <div class="w-3/4 h-4 bg-surface rounded mb-1.5"></div>
+          <div class="w-full h-4 bg-surface rounded mb-3"></div>
+          <div class="w-full h-8 bg-surface rounded mb-2.5"></div>
+          <div class="flex gap-1.5">
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+            <div class="flex-1 h-11 bg-surface rounded-lg"></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- end section-loading-mobile -->
+
+    <!-- === 빈 상태 === -->
+    <div class="section-content" id="section-empty-mobile">
+      <div class="flex flex-col items-center justify-center py-20 text-center">
+        <span class="text-5xl mb-4">🌅</span>
+        <h3 class="font-display text-lg font-bold text-primary mb-2">아직 오늘 브리핑이 없어요</h3>
+        <p class="text-sm text-secondary mb-6 max-w-xs leading-relaxed">매일 오전 07:00에 텔레그램으로 브리핑이 발송됩니다.</p>
+        <button class="px-5 py-3 rounded-xl bg-tech-bg text-tech-text text-sm font-medium">
+          어제 브리핑 보기
+        </button>
+      </div>
+    </div><!-- end section-empty-mobile -->
+
+  </main>
+
+  <!-- 하단 탭 바 -->
+  <nav class="fixed bottom-0 left-0 right-0 z-30 h-14 bg-card border-t border-border-default flex items-center">
+    <button class="tab-item active flex-1 flex flex-col items-center justify-center gap-0.5 h-full" onclick="setActiveTab(this)">
+      <span class="text-xl">🏠</span>
+      <span class="text-xs font-medium">홈</span>
+    </button>
+    <button class="tab-item flex-1 flex flex-col items-center justify-center gap-0.5 h-full" onclick="setActiveTab(this)">
+      <span class="text-xl">📚</span>
+      <span class="text-xs font-medium">히스토리</span>
+    </button>
+    <button class="tab-item flex-1 flex flex-col items-center justify-center gap-0.5 h-full" onclick="setActiveTab(this)">
+      <span class="text-xl">👤</span>
+      <span class="text-xs font-medium">프로필</span>
+    </button>
+    <button class="tab-item flex-1 flex flex-col items-center justify-center gap-0.5 h-full" onclick="setActiveTab(this)">
+      <span class="text-xl">⚙️</span>
+      <span class="text-xs font-medium">설정</span>
+    </button>
+  </nav>
+
+</div><!-- end 모바일 레이아웃 -->
+
+
+<script>
+  /* =====================================================
+     피드백 버튼 인터랙션
+     ===================================================== */
+  document.addEventListener('DOMContentLoaded', function () {
+    const feedbackBtns = document.querySelectorAll('.feedback-btn')
+
+    feedbackBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const type = btn.getAttribute('data-type')
+        const parentRow = btn.closest('.flex.gap-1\\.5')
+
+        // 같은 행의 모든 버튼에서 활성 클래스 제거
+        parentRow.querySelectorAll('.feedback-btn').forEach(function (b) {
+          b.classList.remove('active-like', 'active-dislike', 'active-save', 'active-memo')
+        })
+
+        // 이미 활성화된 버튼을 다시 누르면 비활성화 (토글)
+        const activeClass = 'active-' + type
+        if (btn.classList.contains(activeClass)) {
+          btn.classList.remove(activeClass)
+        } else {
+          btn.classList.add(activeClass)
+        }
+      })
+    })
+  })
+
+  /* =====================================================
+     사이드바 네비게이션 (데스크톱)
+     ===================================================== */
+  function setActiveNav(el) {
+    document.querySelectorAll('.nav-item').forEach(function (item) {
+      item.classList.remove('active')
+      item.classList.add('text-secondary')
+    })
+    el.classList.add('active')
+    el.classList.remove('text-secondary')
+  }
+
+  /* =====================================================
+     하단 탭 바 (모바일)
+     ===================================================== */
+  function setActiveTab(el) {
+    document.querySelectorAll('.tab-item').forEach(function (item) {
+      item.classList.remove('active')
+    })
+    el.classList.add('active')
+  }
+
+  /* =====================================================
+     상태 전환 (데모 컨트롤 패널)
+     ===================================================== */
+  function showSection(name) {
+    // 모바일 섹션 전환
+    var mobileSections = ['section-briefing-mobile', 'section-loading-mobile', 'section-empty-mobile']
+    mobileSections.forEach(function (id) {
+      var el = document.getElementById(id)
+      if (el) el.classList.remove('active')
+    })
+    var mobileTarget = document.getElementById('section-' + name + '-mobile')
+    if (mobileTarget) mobileTarget.classList.add('active')
+
+    // 데스크톱 섹션 전환
+    var desktopSections = ['section-briefing-desktop', 'section-loading-desktop', 'section-empty-desktop']
+    desktopSections.forEach(function (id) {
+      var el = document.getElementById(id)
+      if (el) el.classList.remove('active')
+    })
+    var desktopTarget = document.getElementById('section-' + name + '-desktop')
+    if (desktopTarget) desktopTarget.classList.add('active')
+
+    // 버튼 활성화 표시
+    var btnMap = { briefing: 'btn-briefing', loading: 'btn-loading', empty: 'btn-empty' }
+    Object.values(btnMap).forEach(function (btnId) {
+      var btn = document.getElementById(btnId)
+      if (btn) {
+        btn.classList.remove('bg-primary', 'text-white', 'border-primary')
+        btn.classList.add('bg-white', 'text-secondary', 'border-border-default')
+      }
+    })
+    var activeBtn = document.getElementById(btnMap[name])
+    if (activeBtn) {
+      activeBtn.classList.remove('bg-white', 'text-secondary', 'border-border-default')
+      activeBtn.classList.add('bg-primary', 'text-white', 'border-primary')
+    }
+  }
+
+  // 초기 상태 설정
+  showSection('briefing')
+</script>
+
+</body>
+</html>
