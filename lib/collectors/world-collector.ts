@@ -145,5 +145,11 @@ export class WorldCollector implements ContentCollector {
       errors,
     };
   }
+}
 
+/**
+ * WorldCollector 팩토리 함수 (테스트 모킹 친화적 패턴)
+ */
+export function createWorldCollector(): ContentCollector {
+  return new WorldCollector();
 }

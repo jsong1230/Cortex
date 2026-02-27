@@ -50,3 +50,10 @@ export class TechCollector implements ContentCollector {
     return { channel: 'tech', items: allItems, errors };
   }
 }
+
+/**
+ * TechCollector 팩토리 함수 (테스트 모킹 친화적 패턴)
+ */
+export function createTechCollector(): ContentCollector {
+  return new TechCollector();
+}

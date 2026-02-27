@@ -102,3 +102,10 @@ export class TorontoCollector implements ContentCollector {
     return isTorontoSpecific ? ['toronto'] : ['canada'];
   }
 }
+
+/**
+ * TorontoCollector 팩토리 함수 (테스트 모킹 친화적 패턴)
+ */
+export function createTorontoCollector(): ContentCollector {
+  return new TorontoCollector();
+}

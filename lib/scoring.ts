@@ -51,3 +51,28 @@ export function calculateContentScore(
   void interestProfile;
   return 0.5; // 기본값
 }
+
+/**
+ * TECH 채널 최종 점수 계산
+ * 공식: 관심도 x 0.6 + 컨텍스트 x 0.3 + 최신성 x 0.1
+ *
+ * Phase 1에서는 Claude가 반환한 scoreInitial을 그대로 사용하므로,
+ * 이 함수는 scoreInitial을 그대로 반환한다.
+ *
+ * Phase 2에서는 interest_profile 기반 정밀 스코어링으로 전환 예정.
+ */
+export function calculateTechScore(
+  scoreInitial: number,
+  _interestScore?: number,  // Phase 2: interest_profile 매칭 점수
+  _contextScore?: number,   // Phase 3: keyword_contexts 매칭 점수
+  _recencyScore?: number,   // published_at 기반 최신성 점수
+): number {
+  // Phase 1: Claude 직접 반환 점수 사용 (pass-through)
+  return scoreInitial;
+
+  // Phase 2 활성화 시:
+  // const interest = interestScore ?? scoreInitial;
+  // const context = contextScore ?? 0;
+  // const recency = recencyScore ?? 0.5;
+  // return interest * 0.6 + context * 0.3 + recency * 0.1;
+}
