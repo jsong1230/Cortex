@@ -1,29 +1,66 @@
 // 텔레그램 봇 메시지/버튼 수신 웹훅
 // 인증: X-Telegram-Bot-Api-Secret-Token 헤더 검증
+// F-07 설계서: docs/specs/F-07-telegram-commands/design.md
 
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  parseCommand,
+  dispatchCommand,
+  handleCallbackQuery,
+  type TelegramUpdate,
+} from '@/lib/telegram-commands';
 
+/**
+ * X-Telegram-Bot-Api-Secret-Token 헤더 검증
+ */
 function verifyWebhookSecret(request: NextRequest): boolean {
   const secretToken = request.headers.get('x-telegram-bot-api-secret-token');
   return secretToken === process.env.TELEGRAM_WEBHOOK_SECRET;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // AC8: 웹훅 시크릿 토큰 검증
   if (!verifyWebhookSecret(request)) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized' },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
-  const update = await request.json();
+  let update: TelegramUpdate;
+  try {
+    update = (await request.json()) as TelegramUpdate;
+  } catch {
+    // JSON 파싱 실패 — 200 반환 (텔레그램 재전송 방지)
+    return NextResponse.json({ success: true });
+  }
 
-  // TODO: Phase 0 — 텔레그램 Update 처리
-  // callback_query (인라인 버튼): like/dislike/save → user_interactions 저장
-  // message.text — 명령어 처리:
-  //   /good, /bad, /save N, /more, /keyword XXX, /stats, /mute N
+  try {
+    // callback_query 처리 (인라인 버튼 클릭)
+    if (update.callback_query) {
+      await handleCallbackQuery(update.callback_query);
+      return NextResponse.json({
+        success: true,
+        data: {
+          type: 'callback_query',
+          action: update.callback_query.data ?? null,
+        },
+      });
+    }
 
-  void update; // 사용 예정
+    // 텍스트 명령어 처리
+    if (update.message?.text) {
+      const parsed = parseCommand(update.message.text);
+      if (parsed) {
+        await dispatchCommand(parsed);
+      }
+      // 명령어가 아닌 일반 메시지는 무시
+    }
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch {
+    // 비즈니스 로직 오류도 200으로 반환 — 텔레그램 재전송 방지
+    // (에러는 서버 로그에서 추적)
+    return NextResponse.json({ success: true });
+  }
 }
