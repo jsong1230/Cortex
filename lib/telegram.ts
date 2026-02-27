@@ -382,12 +382,17 @@ export function isWeekend(date: Date = new Date()): boolean {
 
 /**
  * score_initial 기준 채널별 상위 N개 선정
- * 세렌디피티(F-23): 전 채널에서 랜덤 1개 stub 처리
+ * 세렌디피티(F-23): 역가중치 기반 확률적 선정 (관심사 인접 영역 우선)
  * F-16: mode 파라미터로 평일/주말 아이템 수 분기 (기본값: 'weekday')
+ *
+ * @param items 전체 브리핑 후보 아이템
+ * @param mode 평일/주말 모드
+ * @param interestProfile 관심 프로필 (없으면 빈 Map → 동등한 확률)
  */
 export function selectBriefingItems(
   items: BriefingItem[],
   mode: BriefingMode = 'weekday',
+  interestProfile: Map<string, number> = new Map(),
 ): BriefingItem[] {
   const result: BriefingItem[] = [];
 
@@ -403,6 +408,8 @@ export function selectBriefingItems(
     byChannel.set(item.channel, arr);
   }
 
+  const selectedIds = new Set<string>();
+
   for (const [channel, channelItems] of Array.from(byChannel.entries())) {
     const limit = limits[channel];
     if (!limit) continue; // 알 수 없는 채널 무시
@@ -411,16 +418,51 @@ export function selectBriefingItems(
     const sorted = [...channelItems].sort((a, b) => b.score_initial - a.score_initial);
     const selected = sorted.slice(0, limit.max);
     result.push(...selected);
+    selected.forEach((item) => selectedIds.add(item.id));
   }
 
-  // 세렌디피티 stub: 전 채널 아이템 중 랜덤 1개 선택
+  // F-23 세렌디피티: 역가중치 기반 확률적 선정
+  // 이미 선정된 아이템을 excludeIds로 전달하여 중복 방지
   if (items.length > 0) {
-    const randomIndex = Math.floor(Math.random() * items.length);
-    const picked = items[randomIndex];
-    result.push({
-      ...picked,
-      channel: 'serendipity',
-    });
+    // 동적 import 대신 serendipity 로직을 인라인으로 실행
+    // (함수형 모듈 분리: buildSerendipityPool + selectSerendipityItem은 lib/serendipity.ts에 있음)
+    const nonSerendipityItems = items.filter((item) => item.channel !== 'serendipity');
+    if (nonSerendipityItems.length > 0) {
+      // 역가중치 계산 (인라인, 순환 참조 없이)
+      const candidates = nonSerendipityItems.map((item) => {
+        const tags = item.tags ?? [];
+        const scores = tags.map((tag) => interestProfile.get(tag) ?? 0);
+        const avgInterest =
+          tags.length > 0
+            ? scores.reduce((sum, s) => sum + s, 0) / scores.length
+            : 0;
+        const inverseWeight = 1.0 - avgInterest + 0.2;
+        return { item, inverseWeight };
+      });
+
+      // excludeIds(이미 선정된 아이템) 제외
+      const eligibleCandidates = candidates.filter((c) => !selectedIds.has(c.item.id));
+      const pool = eligibleCandidates.length > 0 ? eligibleCandidates : candidates;
+
+      // 룰렛 휠 선택
+      const totalWeight = pool.reduce((sum, c) => sum + c.inverseWeight, 0);
+      const threshold = Math.random() * totalWeight;
+      let accumulated = 0;
+      let picked = pool[pool.length - 1].item;
+
+      for (const { item, inverseWeight } of pool) {
+        accumulated += inverseWeight;
+        if (accumulated > threshold) {
+          picked = item;
+          break;
+        }
+      }
+
+      result.push({
+        ...picked,
+        channel: 'serendipity',
+      });
+    }
   }
 
   return result;

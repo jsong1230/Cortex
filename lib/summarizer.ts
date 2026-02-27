@@ -577,17 +577,45 @@ ${topTopics.map((t, i) => `${i + 1}. ${t}`).join('\n')}
 }
 
 /**
- * 세렌디피티 아이템 선정 (관심사 인접 랜덤)
- * Phase 2 구현 예정
+ * 세렌디피티 아이템 선정 (관심사 인접 랜덤) — F-23 구현
+ * interestTopics 기반 역가중치 계산 후 확률적 선택
+ *
+ * @param interestTopics 관심 토픽 목록 (interest_profile의 topic)
+ * @param candidates 후보 아이템 목록
+ * @returns 선정된 아이템의 인덱스 (candidates 배열 기준)
  */
 export async function selectSerendipityItem(
   interestTopics: string[],
   candidates: SummarizeInput[],
 ): Promise<number> {
-  // TODO: Phase 2
-  void interestTopics;
-  void candidates;
-  throw new Error('Not implemented');
+  const { calculateInverseWeight, selectSerendipityItem: selectFromLib } = await import(
+    '@/lib/serendipity'
+  );
+
+  if (candidates.length === 0) {
+    throw new Error('후보 아이템이 없습니다');
+  }
+
+  // interest_profile Map 구성 (토픽은 점수 1.0으로 가정)
+  const profileMap = new Map<string, number>(interestTopics.map((t) => [t, 1.0]));
+
+  // SerendipityCandidate 형태로 변환
+  const serendipityCandidates = candidates.map((item, idx) => ({
+    id: String(idx),
+    title: item.title,
+    channel: item.channel,
+    tags: [],
+    score_initial: 0.5,
+    inverseWeight: calculateInverseWeight([], profileMap),
+  }));
+
+  const selected = selectFromLib(serendipityCandidates, profileMap);
+  if (!selected) {
+    // 폴백: 0번 인덱스
+    return 0;
+  }
+
+  return parseInt(selected.id, 10);
 }
 
 /**

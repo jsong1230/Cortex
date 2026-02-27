@@ -175,8 +175,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // ─── 3-1. F-23: interest_profile 로드 (세렌디피티 역가중치용) ───────
+    const interestProfile = new Map<string, number>();
+    try {
+      const { data: profileRows } = await supabase
+        .from('interest_profile')
+        .select('topic, score');
+
+      if (profileRows) {
+        for (const row of profileRows) {
+          const topic = row.topic as string;
+          const score = row.score as number;
+          interestProfile.set(topic, score);
+        }
+      }
+    } catch {
+      // 프로필 로드 실패 시 빈 Map으로 진행 (폴백: 동등 확률 선택)
+    }
+
     // ─── 4. F-16: 모드별 아이템 선정 ──────────────────────────────────
-    let selectedItems = selectBriefingItems(contentItems, mode);
+    let selectedItems = selectBriefingItems(contentItems, mode, interestProfile);
 
     // ─── F-17 AC3: 7일 무반응 시 아이템 수 자동 감소 ────────────────────
     let itemReduction = 0;
@@ -355,6 +373,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         summary_ai: item.summary_ai,
         score_initial: item.score_initial,
         tags: item.tags,
+        // F-23 AC4: 세렌디피티 여부를 briefing items에 명시 (반응 추적용)
+        is_serendipity: item.channel === 'serendipity',
       })),
       telegram_sent_at: new Date().toISOString(),
       telegram_message_id: telegramMessageId ?? null,

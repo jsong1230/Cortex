@@ -2,6 +2,7 @@
 // GET  /api/interactions — 반응 이력 조회
 // 인증: Supabase Auth 세션
 // 참조: docs/specs/F-11-user-interactions/design.md, docs/system/api-conventions.md
+// F-23 AC4: 세렌디피티 아이템 반응 별도 추적
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/supabase/auth';
@@ -9,6 +10,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { type InteractionType, VALID_INTERACTIONS } from '@/lib/interactions/types';
 import { updateInterestScore } from '@/lib/scoring';
 import { extractTopicsFromTags, registerTopicsToProfile } from '@/lib/topic-extractor';
+import { isSerendipityItem } from '@/lib/serendipity';
 
 // ─── POST /api/interactions — 반응 저장 (UPSERT) ──────────────────────────
 
@@ -157,6 +159,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           interaction: body.interaction,
           tags: topics,
         });
+      }
+
+      // F-23 AC4: 세렌디피티 반응 별도 추적
+      // briefing_id가 있을 때 briefings.items에서 세렌디피티 여부 확인
+      if (body.briefing_id) {
+        const { data: briefingRow } = await supabase
+          .from('briefings')
+          .select('items')
+          .eq('id', body.briefing_id)
+          .single();
+
+        if (briefingRow) {
+          type BriefingItemRef = { content_id: string; channel: string; title?: string };
+          const briefingItems = (briefingRow.items as BriefingItemRef[]) ?? [];
+          const isSerendipity = isSerendipityItem(body.content_id, briefingItems);
+
+          if (isSerendipity) {
+            // 세렌디피티 반응을 별도 메타데이터로 로깅 (AC4)
+            // eslint-disable-next-line no-console
+            console.info(
+              JSON.stringify({
+                event: 'cortex_serendipity_reaction',
+                content_id: body.content_id,
+                briefing_id: body.briefing_id,
+                interaction: body.interaction,
+                serendipity_source: 'serendipity_channel',
+                timestamp: new Date().toISOString(),
+              })
+            );
+          }
+        }
       }
     } catch (learningErr) {
       const errMsg = learningErr instanceof Error ? learningErr.message : String(learningErr);
