@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/supabase/auth';
 import { createServerClient } from '@/lib/supabase/server';
 import { type InteractionType, VALID_INTERACTIONS } from '@/lib/interactions/types';
+import { updateInterestScore } from '@/lib/scoring';
+import { extractTopicsFromTags, registerTopicsToProfile } from '@/lib/topic-extractor';
 
 // ─── POST /api/interactions — 반응 저장 (UPSERT) ──────────────────────────
 
@@ -132,6 +134,43 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 200 }
     );
   }
+
+  // 8. 학습 루프: content_items 태그 조회 후 interest_profile 업데이트 (AC1, AC2, AC3)
+  // 비동기 fire-and-forget (학습 실패가 반응 저장을 블록하면 안 됨)
+  void (async () => {
+    try {
+      const { data: contentItem } = await supabase
+        .from('content_items')
+        .select('tags')
+        .eq('id', body.content_id)
+        .single();
+
+      const rawTags = (contentItem as { tags?: string[] } | null)?.tags ?? [];
+      const topics = extractTopicsFromTags(rawTags);
+
+      if (topics.length > 0) {
+        // AC1: 신규 토픽 등록
+        await registerTopicsToProfile(topics);
+        // AC2+AC3: EMA 업데이트
+        await updateInterestScore({
+          contentId: body.content_id,
+          interaction: body.interaction,
+          tags: topics,
+        });
+      }
+    } catch (learningErr) {
+      const errMsg = learningErr instanceof Error ? learningErr.message : String(learningErr);
+      // eslint-disable-next-line no-console
+      console.warn(
+        JSON.stringify({
+          event: 'cortex_learning_loop_error',
+          content_id: body.content_id,
+          interaction: body.interaction,
+          error: errMsg,
+        })
+      );
+    }
+  })();
 
   return NextResponse.json(
     {

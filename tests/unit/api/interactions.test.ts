@@ -56,6 +56,20 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
+// 학습 루프 모킹 (F-13): 기존 테스트에 영향 없도록 no-op mock
+vi.mock('@/lib/scoring', () => ({
+  updateInterestScore: vi.fn().mockResolvedValue(undefined),
+  calculateContentScore: vi.fn().mockReturnValue(0.5),
+  calculateTechScore: vi.fn().mockImplementation((s: number) => s),
+  EMA_ALPHA: 0.3,
+  INTERACTION_WEIGHTS: {},
+}));
+
+vi.mock('@/lib/topic-extractor', () => ({
+  extractTopicsFromTags: vi.fn().mockReturnValue([]),
+  registerTopicsToProfile: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ─── 테스트 데이터 ──────────────────────────────────────────────────────────
 
 const VALID_BODY_LIKE = {

@@ -233,7 +233,8 @@ describe('selectBriefingItems', () => {
     expect(cultureItems).toHaveLength(1);
   });
 
-  it('U-03-4: TORONTO 4개 입력 시 score_initial 기준 상위 3개만 반환된다', () => {
+  it('U-03-4: TORONTO 4개 입력 시 score_initial 기준 상위 2개만 반환된다 (F-16 평일 기본)', () => {
+    // F-16: 평일 모드 기본값 — canada max:2
     const items: BriefingItem[] = [
       makeCanadaItem({ id: 'ca1', score_initial: 0.5 }),
       makeCanadaItem({ id: 'ca2', score_initial: 0.9 }),
@@ -244,7 +245,7 @@ describe('selectBriefingItems', () => {
     const result = selectBriefingItems(items);
     const canadaItems = result.filter((i) => i.channel === 'canada');
 
-    expect(canadaItems).toHaveLength(3);
+    expect(canadaItems).toHaveLength(2);
   });
 
   it('U-03-5: 빈 채널 아이템 입력 시 에러 없이 빈 배열을 반환한다', () => {

@@ -474,6 +474,108 @@ ${JSON.stringify(headlines, null, 2)}
   }
 }
 
+// ─── 주말 브리핑 확장 요약 (F-16) ───────────────────────────────────────────
+
+/** 주말 브리핑용 확장 요약 결과 */
+export interface ExtendedSummaryResult {
+  id: string;
+  extendedSummary: string;   // 3줄 요약 (개행 구분)
+  whyImportant: string;      // "왜 중요한가" 설명
+  tokensUsed: number;
+}
+
+/**
+ * 주말 브리핑용 3줄 요약 + "왜 중요한가" 생성 (F-16 AC2)
+ * 기존 1줄 summary_ai보다 깊은 맥락 제공
+ * @param item 확장 요약할 아이템 (id, title, fullText, channel)
+ */
+export async function generateExtendedSummary(
+  item: SummarizeInput,
+): Promise<ExtendedSummaryResult> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다');
+  }
+
+  const prompt = `아래 콘텐츠에 대해 주말 브리핑용 심층 요약을 작성하세요.
+
+콘텐츠:
+제목: ${item.title}
+본문: ${item.fullText ? item.fullText.slice(0, FULL_TEXT_MAX_LENGTH) : ''}
+
+응답 형식 (JSON):
+{
+  "extended_summary": "1줄: ...\\n2줄: ...\\n3줄: ...",
+  "why_important": "이 콘텐츠가 중요한 이유 1~2문장 (한국어)"
+}
+
+규칙:
+- extended_summary: 3줄로 핵심 내용을 단계별 전개
+- why_important: 50대 CTO 관점에서 실무/생활에 미치는 영향
+- 응답은 순수 JSON만 반환`;
+
+  try {
+    const response = await callClaudeAPI(prompt, SYSTEM_PROMPT);
+
+    const cleaned = response.text
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+
+    const parsed = JSON.parse(cleaned) as {
+      extended_summary: string;
+      why_important: string;
+    };
+
+    return {
+      id: item.id,
+      extendedSummary: parsed.extended_summary ?? item.title,
+      whyImportant: parsed.why_important ?? '',
+      tokensUsed: response.inputTokens + response.outputTokens,
+    };
+  } catch {
+    // 실패 시 폴백: title을 3줄 요약으로, 빈 why_important
+    return {
+      id: item.id,
+      extendedSummary: item.title,
+      whyImportant: '',
+      tokensUsed: 0,
+    };
+  }
+}
+
+/**
+ * Weekly Digest용 AI 한줄 코멘트 생성 (F-16 AC3)
+ * "이번 주 당신의 관심은 {토픽}에 집중됐어요" 형식
+ * @param topTopics 이번 주 좋아요 Top 3 아이템 (채널: 제목 형식)
+ */
+export async function generateWeeklyComment(topTopics: string[]): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다');
+  }
+
+  if (topTopics.length === 0) {
+    return '이번 주도 다양한 주제로 지식을 넓혔네요.';
+  }
+
+  const prompt = `이번 주 사용자가 가장 많이 좋아요를 누른 아이템들:
+${topTopics.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+위 패턴을 보고, "이번 주 당신의 관심은 {핵심 토픽}에 집중됐어요" 형식으로
+자연스러운 한 문장 AI 코멘트를 생성하세요.
+
+규칙:
+- 1문장, 30~50자 내외
+- 따뜻하고 통찰력 있는 톤
+- 응답은 문장만 반환 (JSON 없이)`;
+
+  try {
+    const response = await callClaudeAPI(prompt, SYSTEM_PROMPT);
+    return response.text.trim();
+  } catch {
+    return '이번 주도 알찬 브리핑과 함께했네요.';
+  }
+}
+
 /**
  * 세렌디피티 아이템 선정 (관심사 인접 랜덤)
  * Phase 2 구현 예정

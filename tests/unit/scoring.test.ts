@@ -29,8 +29,10 @@ describe('calculateTechScore', () => {
     expect(result).toBe(0.5);
   });
 
-  it('Phase 2 파라미터를 전달해도 Phase 1에서는 scoreInitial만 사용한다', () => {
+  // F-13 Phase 2 활성화: interest/context/recency가 모두 제공되면 가중 공식 적용
+  // 0.9*0.6 + 0.8*0.3 + 0.7*0.1 = 0.54 + 0.24 + 0.07 = 0.85
+  it('Phase 2: interest/context/recency가 모두 제공되면 가중 공식(0.6:0.3:0.1)을 적용한다', () => {
     const result = calculateTechScore(0.6, 0.9, 0.8, 0.7);
-    expect(result).toBe(0.6);
+    expect(result).toBeCloseTo(0.85);
   });
 });

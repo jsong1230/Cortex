@@ -1,19 +1,36 @@
 // 텔레그램 봇 유틸리티 (발송, 포매팅, 인라인 키보드)
 // 모든 텔레그램 API 호출은 이 모듈을 통해 수행
 // F-06 설계서: docs/specs/F-06-telegram-briefing/design.md
+// F-16 설계서: 평일/주말 브리핑 분리
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 
 // 요일 표기 (KST)
 const DAY_NAMES_KO = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 
-// 채널별 선정 한도
-const CHANNEL_LIMITS: Record<string, { min: number; max: number }> = {
+// ─── F-16: 브리핑 모드 타입 ───────────────────────────────────────────────────
+
+/** 브리핑 발송 모드 (평일 vs 주말) */
+export type BriefingMode = 'weekday' | 'weekend';
+
+// 채널별 선정 한도 (평일 모드 기본)
+const CHANNEL_LIMITS_WEEKDAY: Record<string, { min: number; max: number }> = {
   tech:    { min: 2, max: 3 },
   world:   { min: 1, max: 2 },
-  culture: { min: 1, max: 2 },
-  canada:  { min: 2, max: 3 },
+  culture: { min: 1, max: 1 },
+  canada:  { min: 1, max: 2 },
 };
+
+// 채널별 선정 한도 (주말 모드: 5개 엄선)
+const CHANNEL_LIMITS_WEEKEND: Record<string, { min: number; max: number }> = {
+  tech:    { min: 1, max: 2 },
+  world:   { min: 1, max: 1 },
+  culture: { min: 1, max: 1 },
+  canada:  { min: 1, max: 1 },
+};
+
+// 하위 호환용 기본 한도 (평일 모드와 동일)
+const CHANNEL_LIMITS: Record<string, { min: number; max: number }> = CHANNEL_LIMITS_WEEKDAY;
 
 // 채널 헤더 이모지 매핑
 const CHANNEL_HEADERS: Record<string, string> = {
@@ -57,13 +74,17 @@ export interface SendMessageOptions {
 /** 브리핑 아이템 (DB content_items에서 조회한 형태) */
 export interface BriefingItem {
   id: string;
-  channel: string;           // 'tech' | 'world' | 'culture' | 'canada' | 'serendipity'
-  source: string;            // 'hackernews' | 'weather' | 'cbc' 등
+  channel: string;              // 'tech' | 'world' | 'culture' | 'canada' | 'serendipity'
+  source: string;               // 'hackernews' | 'weather' | 'cbc' 등
   source_url: string;
   title: string;
   summary_ai: string | null;
   score_initial: number;
   tags?: string[];
+  /** F-16: 주말 포맷용 3줄 확장 요약 (없으면 summary_ai 폴백) */
+  extended_summary?: string;
+  /** F-16: 주말 포맷용 "왜 중요한가" 설명 */
+  why_important?: string;
 }
 
 /** sendBriefing 결과 */
@@ -187,6 +208,149 @@ export function formatBriefingMessage(items: BriefingItem[]): string {
   return lines.join('\n');
 }
 
+// ─── KST 날짜 헤더 생성 공통 헬퍼 ───────────────────────────────────────────
+
+/**
+ * KST 기준 날짜 헤더 문자열 생성
+ * 반환 형식: "🌅 YYYY.MM.DD 요일 {label}"
+ */
+function buildDateHeader(label: string): string {
+  const now = new Date();
+  const kstDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }); // 'YYYY-MM-DD'
+  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const yearMonth = kstDateStr.slice(0, 7).replace('-', '.'); // 'YYYY.MM'
+  const day = kstDateStr.slice(8, 10); // 'DD'
+  const dayName = DAY_NAMES_KO[kstDate.getDay()];
+  return `🌅 ${yearMonth}.${day} ${dayName} ${label}`;
+}
+
+/**
+ * 채널별 아이템 그룹핑 헬퍼
+ */
+function groupByChannel(items: BriefingItem[]): Map<string, BriefingItem[]> {
+  const byChannel = new Map<string, BriefingItem[]>();
+  for (const item of items) {
+    const arr = byChannel.get(item.channel) ?? [];
+    arr.push(item);
+    byChannel.set(item.channel, arr);
+  }
+  return byChannel;
+}
+
+// ─── formatWeekdayBriefing ───────────────────────────────────────────────────
+
+/**
+ * 평일 브리핑 HTML 메시지 생성 (F-16 AC1)
+ * 포맷: 제목 + 1줄 요약 + 스코어(★)
+ * 채널 순서: TECH → WORLD → CULTURE → TORONTO → 세렌디피티
+ * 빈 채널은 섹션 자체를 생략
+ */
+export function formatWeekdayBriefing(items: BriefingItem[]): string {
+  const lines: string[] = [];
+  lines.push(buildDateHeader('모닝 브리핑'));
+
+  const byChannel = groupByChannel(items);
+
+  for (const channelKey of CHANNEL_ORDER) {
+    const channelItems = byChannel.get(channelKey);
+    if (!channelItems || channelItems.length === 0) continue;
+
+    const header = CHANNEL_HEADERS[channelKey];
+    lines.push('');
+    lines.push(header);
+
+    if (channelKey === 'serendipity') {
+      const item = channelItems[0];
+      const summary = item.summary_ai ?? item.title;
+      lines.push(`💡 <a href="${item.source_url}">${item.title}</a> — ${summary}`);
+      continue;
+    }
+
+    // TORONTO(canada): 날씨 아이템은 목록 상단에 별도 형식으로
+    if (channelKey === 'canada') {
+      const weatherItems = channelItems.filter((i) => i.source === 'weather');
+      const newsItems = channelItems.filter((i) => i.source !== 'weather');
+
+      for (const w of weatherItems) {
+        const summary = w.summary_ai ?? '';
+        lines.push(`📍 날씨: ${summary}`);
+      }
+
+      let num = 1;
+      for (const item of newsItems) {
+        const summary = item.summary_ai ?? item.title;
+        const score = (item.score_initial * 10).toFixed(1);
+        lines.push(
+          `${num}. <a href="${item.source_url}">${item.title}</a> — ${summary} (★${score})`,
+        );
+        num++;
+      }
+      continue;
+    }
+
+    // 일반 채널
+    let num = 1;
+    for (const item of channelItems) {
+      const summary = item.summary_ai ?? item.title;
+      const score = (item.score_initial * 10).toFixed(1);
+      lines.push(
+        `${num}. <a href="${item.source_url}">${item.title}</a> — ${summary} (★${score})`,
+      );
+      num++;
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// ─── formatWeekendBriefing ───────────────────────────────────────────────────
+
+/**
+ * 주말 브리핑 HTML 메시지 생성 (F-16 AC2)
+ * 포맷: 제목 + 3줄 요약 + "왜 중요한가" 섹션 (스코어 없음)
+ * 채널 순서: TECH → WORLD → CULTURE → TORONTO → 세렌디피티
+ * 빈 채널은 섹션 자체를 생략
+ */
+export function formatWeekendBriefing(items: BriefingItem[]): string {
+  const lines: string[] = [];
+  lines.push(buildDateHeader('모닝 브리핑'));
+
+  const byChannel = groupByChannel(items);
+
+  for (const channelKey of CHANNEL_ORDER) {
+    const channelItems = byChannel.get(channelKey);
+    if (!channelItems || channelItems.length === 0) continue;
+
+    const header = CHANNEL_HEADERS[channelKey];
+    lines.push('');
+    lines.push(header);
+
+    if (channelKey === 'serendipity') {
+      const item = channelItems[0];
+      const summary = item.summary_ai ?? item.title;
+      lines.push(`💡 <a href="${item.source_url}">${item.title}</a> — ${summary}`);
+      continue;
+    }
+
+    let num = 1;
+    for (const item of channelItems) {
+      // 3줄 요약: extended_summary 우선, 없으면 summary_ai 폴백
+      const summary = item.extended_summary ?? item.summary_ai ?? item.title;
+      lines.push(`${num}. <a href="${item.source_url}">${item.title}</a>`);
+      lines.push(summary);
+
+      // "왜 중요한가" 섹션 (있을 때만)
+      if (item.why_important) {
+        lines.push(`❓ <b>왜 중요한가</b>: ${item.why_important}`);
+      }
+
+      num++;
+    }
+  }
+
+  return lines.join('\n');
+}
+
 // ─── createInlineKeyboard ────────────────────────────────────────────────────
 
 /**
@@ -200,14 +364,35 @@ export function createInlineKeyboard(webUrl: string): InlineButton[][] {
   ];
 }
 
+// ─── isWeekend ───────────────────────────────────────────────────────────────
+
+/**
+ * KST 기준 주말(토/일) 여부 판단 (F-16)
+ * @param date 기준 날짜 (기본값: 현재 시각)
+ */
+export function isWeekend(date: Date = new Date()): boolean {
+  // KST = UTC+9, en-CA locale은 YYYY-MM-DD 형식을 보장
+  const kstDateStr = date.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const dayOfWeek = kstDate.getDay(); // 0: 일, 6: 토
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
 // ─── selectBriefingItems ─────────────────────────────────────────────────────
 
 /**
  * score_initial 기준 채널별 상위 N개 선정
  * 세렌디피티(F-23): 전 채널에서 랜덤 1개 stub 처리
+ * F-16: mode 파라미터로 평일/주말 아이템 수 분기 (기본값: 'weekday')
  */
-export function selectBriefingItems(items: BriefingItem[]): BriefingItem[] {
+export function selectBriefingItems(
+  items: BriefingItem[],
+  mode: BriefingMode = 'weekday',
+): BriefingItem[] {
   const result: BriefingItem[] = [];
+
+  // 모드별 한도 선택
+  const limits = mode === 'weekend' ? CHANNEL_LIMITS_WEEKEND : CHANNEL_LIMITS_WEEKDAY;
 
   // 채널별 그룹핑 + score 내림차순 정렬
   const byChannel = new Map<string, BriefingItem[]>();
@@ -219,7 +404,7 @@ export function selectBriefingItems(items: BriefingItem[]): BriefingItem[] {
   }
 
   for (const [channel, channelItems] of Array.from(byChannel.entries())) {
-    const limit = CHANNEL_LIMITS[channel];
+    const limit = limits[channel];
     if (!limit) continue; // 알 수 없는 채널 무시
 
     // score_initial 내림차순 정렬

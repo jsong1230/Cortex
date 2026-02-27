@@ -6,11 +6,21 @@
     },
     {
       "path": "/api/cron/send-briefing",
-      "schedule": "0 22 * * *"
+      "schedule": "0 22 * * 1-5",
+      "comment": "F-16: 평일(월~금) 브리핑 07:00 KST (UTC 22:00)"
+    },
+    {
+      "path": "/api/cron/send-briefing",
+      "schedule": "0 0 * * 0,6",
+      "comment": "F-16: 주말(토~일) 브리핑 09:00 KST (UTC 00:00)"
     },
     {
       "path": "/api/cron/alerts/check",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/archive-topics",
+      "schedule": "0 3 * * 0"
     }
   ]
 }
