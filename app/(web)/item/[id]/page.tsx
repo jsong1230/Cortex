@@ -1,5 +1,8 @@
 // /item/[id] — 콘텐츠 아이템 상세 + 메모
+// 참조: docs/specs/F-09-web-item-detail/design.md
+
 import type { Metadata } from 'next';
+import { ItemDetailView } from '@/components/item/ItemDetailView';
 
 interface PageProps {
   params: { id: string };
@@ -11,12 +14,8 @@ export const metadata: Metadata = {
 
 export default function ItemDetailPage({ params }: PageProps) {
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">아이템 상세</h1>
-        {/* TODO: Phase 1 — 아이템 상세 + 피드백 버튼 + 메모 입력 */}
-        <p className="text-gray-500">ID: {params.id}</p>
-      </div>
+    <main className="min-h-screen bg-[#F8F7F4]">
+      <ItemDetailView contentId={params.id} />
     </main>
   );
 }

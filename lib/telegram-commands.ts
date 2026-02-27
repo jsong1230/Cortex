@@ -123,20 +123,37 @@ async function getTodayBriefing(): Promise<BriefingRecord | null> {
   return data[0] as BriefingRecord;
 }
 
-// ─── user_interactions INSERT 헬퍼 ──────────────────────────────────────────
+// ─── user_interactions UPSERT 헬퍼 ──────────────────────────────────────────
 
+/**
+ * 텔레그램 반응을 user_interactions에 기록한다.
+ * 메모 외 반응은 UPSERT로 중복을 방지한다.
+ * 메모는 항상 새 레코드로 INSERT한다.
+ */
 async function insertInteraction(
   contentId: string,
   briefingId: string | null,
   interaction: string,
 ): Promise<void> {
   const supabase = createServerClient();
-  await supabase.from('user_interactions').insert({
+
+  const data = {
     content_id: contentId,
     briefing_id: briefingId,
     interaction,
     source: 'telegram_bot',
-  });
+  };
+
+  if (interaction === '메모') {
+    // 메모는 복수 허용 → 항상 INSERT
+    await supabase.from('user_interactions').insert(data);
+  } else {
+    // 메모 외 반응: UPSERT (중복 방지)
+    await supabase.from('user_interactions').upsert(data, {
+      onConflict: 'content_id,interaction',
+      ignoreDuplicates: true,
+    });
+  }
 }
 
 // ─── handleGood ─────────────────────────────────────────────────────────────
@@ -385,13 +402,8 @@ export async function handleCallbackQuery(
       return; // 알 수 없는 action은 무시
   }
 
-  const supabase = createServerClient();
-  await supabase.from('user_interactions').insert({
-    content_id: contentId,
-    briefing_id: null,
-    interaction,
-    source: 'telegram_bot',
-  });
+  // UPSERT로 중복 반응 방지
+  await insertInteraction(contentId, null, interaction);
 }
 
 // ─── dispatchCommand ────────────────────────────────────────────────────────

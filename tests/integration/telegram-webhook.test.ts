@@ -325,7 +325,7 @@ describe('POST /api/telegram/webhook — callback_query 처리 (I-07-04)', () =>
     delete process.env.TELEGRAM_CHAT_ID;
   });
 
-  it('I-07-04-1: like:uuid 콜백 처리 후 200을 반환하고 좋아요 반응을 INSERT한다', async () => {
+  it('I-07-04-1: like:uuid 콜백 처리 후 200을 반환하고 좋아요 반응을 UPSERT한다 (F-11 중복 방지)', async () => {
     const { POST } = await import('@/app/api/telegram/webhook/route');
 
     const request = makeWebhookRequest(makeCallbackUpdate('like:content-uuid-001'));
@@ -335,41 +335,47 @@ describe('POST /api/telegram/webhook — callback_query 처리 (I-07-04)', () =>
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(mockFrom).toHaveBeenCalledWith('user_interactions');
-    expect(mockInsert).toHaveBeenCalledWith(
+    // F-11: handleCallbackQuery는 UPSERT로 중복 방지
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         interaction: '좋아요',
         source: 'telegram_bot',
       }),
+      expect.objectContaining({ ignoreDuplicates: true }),
     );
   });
 
-  it('I-07-04-2: dislike:uuid 콜백 처리 후 싫어요 반응을 INSERT한다', async () => {
+  it('I-07-04-2: dislike:uuid 콜백 처리 후 싫어요 반응을 UPSERT한다 (F-11 중복 방지)', async () => {
     const { POST } = await import('@/app/api/telegram/webhook/route');
 
     const request = makeWebhookRequest(makeCallbackUpdate('dislike:content-uuid-001'));
     const response = await POST(request);
 
     expect(response.status).toBe(200);
-    expect(mockInsert).toHaveBeenCalledWith(
+    // F-11: handleCallbackQuery는 UPSERT로 중복 방지
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         interaction: '싫어요',
         source: 'telegram_bot',
       }),
+      expect.objectContaining({ ignoreDuplicates: true }),
     );
   });
 
-  it('I-07-04-3: save:uuid 콜백 처리 후 저장 반응을 INSERT한다', async () => {
+  it('I-07-04-3: save:uuid 콜백 처리 후 저장 반응을 UPSERT한다 (F-11 중복 방지)', async () => {
     const { POST } = await import('@/app/api/telegram/webhook/route');
 
     const request = makeWebhookRequest(makeCallbackUpdate('save:content-uuid-001'));
     const response = await POST(request);
 
     expect(response.status).toBe(200);
-    expect(mockInsert).toHaveBeenCalledWith(
+    // F-11: handleCallbackQuery는 UPSERT로 중복 방지
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         interaction: '저장',
         source: 'telegram_bot',
       }),
+      expect.objectContaining({ ignoreDuplicates: true }),
     );
   });
 
