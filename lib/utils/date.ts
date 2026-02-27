@@ -18,6 +18,14 @@ export function getTodayKST(): string {
 }
 
 /**
+ * 오늘 날짜를 KST 기준 YYYY-MM-DD 형식으로 반환 (getKSTToday 별칭)
+ * design.md 요구사항: lib/utils/date.ts에 getKSTToday() 함수 포함
+ */
+export function getKSTToday(): string {
+  return getTodayKST();
+}
+
+/**
  * Date → YYYY-MM-DD 형식 문자열
  */
 export function formatDate(date: Date): string {

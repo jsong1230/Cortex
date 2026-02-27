@@ -1,5 +1,8 @@
 // / — 오늘의 브리핑 메인 페이지
+// 참조: docs/specs/F-08-web-briefing-viewer/design.md
+
 import type { Metadata } from 'next';
+import { BriefingCardList } from '@/components/briefing/BriefingCardList';
 
 export const metadata: Metadata = {
   title: 'Cortex — 오늘의 브리핑',
@@ -8,14 +11,22 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          오늘의 브리핑
-        </h1>
-        {/* TODO: Phase 0 — BriefingCard 컴포넌트 렌더링 */}
-        <p className="text-gray-500">브리핑을 불러오는 중...</p>
-      </div>
-    </main>
+    <>
+      <h1
+        style={{
+          fontSize: '24px',
+          fontWeight: 700,
+          letterSpacing: '-0.02em',
+          color: '#1A1A1A',
+          fontFamily: "'Noto Serif KR', Georgia, serif",
+          marginBottom: '16px',
+        }}
+      >
+        오늘의 브리핑
+      </h1>
+
+      {/* BriefingCardList: 로딩/에러/빈 상태 + 카드 목록 (AC1, AC2, AC3) */}
+      <BriefingCardList />
+    </>
   );
 }
