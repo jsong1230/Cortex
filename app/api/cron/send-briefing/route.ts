@@ -37,7 +37,7 @@ import {
 import { calculateTechScore } from '@/lib/scoring';
 
 // 웹 URL (인라인 버튼에 사용)
-const WEB_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cortex.vercel.app';
+const WEB_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cortex-briefing.vercel.app';
 
 function verifyCronSecret(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization');

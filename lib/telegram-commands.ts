@@ -231,7 +231,7 @@ export async function handleSave(n: number): Promise<string> {
  */
 export function handleMore(): string {
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://cortex.vercel.app';
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://cortex-briefing.vercel.app';
   const todayKST = formatDate(toKST(new Date()));
   return `오늘 브리핑 웹 상세 페이지:\n${appUrl}/briefings/${todayKST}`;
 }
