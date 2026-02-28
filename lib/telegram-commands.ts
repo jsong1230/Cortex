@@ -146,13 +146,15 @@ async function insertInteraction(
 
   if (interaction === '메모') {
     // 메모는 복수 허용 → 항상 INSERT
-    await supabase.from('user_interactions').insert(data);
+    const { error } = await supabase.from('user_interactions').insert(data);
+    if (error) throw new Error(`interaction insert 실패: ${error.message}`);
   } else {
     // 메모 외 반응: UPSERT (중복 방지)
-    await supabase.from('user_interactions').upsert(data, {
+    const { error } = await supabase.from('user_interactions').upsert(data, {
       onConflict: 'content_id,interaction',
       ignoreDuplicates: true,
     });
+    if (error) throw new Error(`interaction upsert 실패: ${error.message}`);
   }
 }
 
