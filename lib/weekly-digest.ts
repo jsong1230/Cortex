@@ -165,26 +165,26 @@ export async function generateWeeklyDigest(
     topLikedItems = [];
   }
 
-  // ─ 미완독 리마인더 조회 ────────────────────────────────────────────────────
+  // ─ 미완독 리마인더 조회 (F-19 AC5: saved_items 테이블 기반) ──────────────────
   let unreadReminders: UnreadReminder[] = [];
 
-  /** 미완독 조회 행 타입 */
-  interface SavedRow {
+  /** 미완독 조회 행 타입 (saved_items + content_items 조인) */
+  interface SavedItemRow {
     content_id: string;
-    created_at: string;
+    saved_at: string;
+    status: string;
     content_items: { title: string; source_url: string } | null;
   }
 
   try {
     const savedResult = await supabase
-      .from('user_interactions')
-      .select('content_id, created_at, content_items(title, source_url)')
-      .eq('action', 'save')
-      .is('read_at', null)
-      .order('created_at', { ascending: false })
+      .from('saved_items')
+      .select('content_id, saved_at, status, content_items(title, source_url)')
+      .in('status', ['saved', 'reading'])
+      .order('saved_at', { ascending: false })
       .limit(5);
 
-    const savedRows = (savedResult.data ?? []) as SavedRow[];
+    const savedRows = (savedResult.data ?? []) as SavedItemRow[];
 
     if (savedRows.length > 0) {
       unreadReminders = savedRows
@@ -192,7 +192,7 @@ export async function generateWeeklyDigest(
           const contentItem = row.content_items;
           if (!contentItem) return null;
 
-          const savedAt = new Date(row.created_at)
+          const savedAt = new Date(row.saved_at)
             .toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 
           return {
@@ -238,6 +238,7 @@ export interface SupabaseClientLike {
 interface SupabaseQueryBuilder extends Promise<{ data: unknown[] | null; error: unknown }> {
   select: (columns: string) => SupabaseQueryBuilder;
   eq: (column: string, value: unknown) => SupabaseQueryBuilder;
+  in: (column: string, values: unknown[]) => SupabaseQueryBuilder;
   is: (column: string, value: unknown) => SupabaseQueryBuilder;
   gte: (column: string, value: unknown) => SupabaseQueryBuilder;
   order: (column: string, options?: { ascending?: boolean }) => SupabaseQueryBuilder;

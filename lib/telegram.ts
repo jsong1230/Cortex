@@ -85,6 +85,8 @@ export interface BriefingItem {
   extended_summary?: string;
   /** F-16: 주말 포맷용 "왜 중요한가" 설명 */
   why_important?: string;
+  /** F-18: My Life OS 컨텍스트 매칭 이유 (있을 때만 표시) */
+  reason?: string;
 }
 
 /** sendBriefing 결과 */
@@ -201,6 +203,10 @@ export function formatBriefingMessage(items: BriefingItem[]): string {
       lines.push(
         `${num}. <a href="${item.source_url}">${item.title}</a> — ${summary} (★${score})`,
       );
+      // F-18 AC4: My Life OS 컨텍스트 매칭 이유 표시
+      if (item.reason) {
+        lines.push(`   💡 ${item.reason}`);
+      }
       num++;
     }
   }
@@ -296,6 +302,10 @@ export function formatWeekdayBriefing(items: BriefingItem[]): string {
       lines.push(
         `${num}. <a href="${item.source_url}">${item.title}</a> — ${summary} (★${score})`,
       );
+      // F-18 AC4: My Life OS 컨텍스트 매칭 이유 표시
+      if (item.reason) {
+        lines.push(`   💡 ${item.reason}`);
+      }
       num++;
     }
   }

@@ -21,6 +21,11 @@
     {
       "path": "/api/cron/archive-topics",
       "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/context/sync",
+      "schedule": "0 21 * * *",
+      "comment": "F-18: My Life OS 컨텍스트 동기화 (수집 30분 전, UTC 21:00 = KST 06:00)"
     }
   ]
 }

@@ -28,6 +28,13 @@ import {
   detectRepeatingIssues,
   markAsFollowing,
 } from '@/lib/fatigue-prevention';
+import {
+  getActiveKeywords,
+  matchContentToKeywords,
+  calculateContextScore,
+  type KeywordContext,
+} from '@/lib/mylifeos';
+import { calculateTechScore } from '@/lib/scoring';
 
 // 웹 URL (인라인 버튼에 사용)
 const WEB_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cortex.vercel.app';
@@ -193,8 +200,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // 프로필 로드 실패 시 빈 Map으로 진행 (폴백: 동등 확률 선택)
     }
 
+    // ─── 3-2. F-18: My Life OS 키워드 컨텍스트 로드 ─────────────────
+    let activeKeywordContexts: KeywordContext[] = [];
+    try {
+      activeKeywordContexts = await getActiveKeywords(supabase);
+    } catch {
+      // 컨텍스트 로드 실패 시 빈 배열로 진행 (non-fatal)
+    }
+
+    // ─── 3-3. F-18: 컨텍스트 점수로 score_initial 재계산 (tech 채널) ──
+    // Phase 2 공식: interest x 0.6 + context x 0.3 + recency x 0.1 (calculateTechScore 활용)
+    const contextEnrichedItems: typeof contentItems = contentItems.map((item) => {
+      if (item.channel !== 'tech' || activeKeywordContexts.length === 0) {
+        return item;
+      }
+
+      const tags = item.tags ?? [];
+      const contextScore = calculateContextScore(tags, activeKeywordContexts);
+
+      if (contextScore === 0) {
+        return item;
+      }
+
+      // interest 점수 (interestProfile에서 계산)
+      const interestScores = tags.map((tag) => interestProfile.get(tag) ?? 0.5);
+      const interestScore = interestScores.length > 0
+        ? interestScores.reduce((sum, s) => sum + s, 0) / interestScores.length
+        : 0.5;
+
+      // recency 점수: score_initial 자체를 recency 대리값으로 사용
+      const recencyScore = item.score_initial;
+
+      const newScore = calculateTechScore(
+        item.score_initial,
+        interestScore,
+        contextScore,
+        recencyScore,
+      );
+
+      return { ...item, score_initial: newScore };
+    });
+
     // ─── 4. F-16: 모드별 아이템 선정 ──────────────────────────────────
-    let selectedItems = selectBriefingItems(contentItems, mode, interestProfile);
+    let selectedItems = selectBriefingItems(contextEnrichedItems, mode, interestProfile);
 
     // ─── F-17 AC3: 7일 무반응 시 아이템 수 자동 감소 ────────────────────
     let itemReduction = 0;
@@ -265,6 +313,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const channelCounts: Record<string, number> = {};
     for (const item of selectedItems) {
       channelCounts[item.channel] = (channelCounts[item.channel] ?? 0) + 1;
+    }
+
+    // ─── 4-1. F-18: 컨텍스트 매칭 이유 추가 (AC4) ───────────────────
+    if (activeKeywordContexts.length > 0) {
+      selectedItems = selectedItems.map((item) => {
+        const tags = item.tags ?? [];
+        const reason = matchContentToKeywords(tags, activeKeywordContexts);
+        if (reason) {
+          return { ...item, reason };
+        }
+        return item;
+      });
     }
 
     // ─── 5. F-16: 모드별 브리핑 메시지 포매팅 ─────────────────────────

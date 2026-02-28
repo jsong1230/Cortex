@@ -11,6 +11,7 @@ import { type InteractionType, VALID_INTERACTIONS } from '@/lib/interactions/typ
 import { updateInterestScore } from '@/lib/scoring';
 import { extractTopicsFromTags, registerTopicsToProfile } from '@/lib/topic-extractor';
 import { isSerendipityItem } from '@/lib/serendipity';
+import { markAsReading } from '@/lib/reading-loop';
 
 // ─── POST /api/interactions — 반응 저장 (UPSERT) ──────────────────────────
 
@@ -135,6 +136,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { success: true, data: existing ?? { content_id: body.content_id, interaction: body.interaction } },
       { status: 200 }
     );
+  }
+
+  // 8-F19. F-19 AC2: 원문 링크 클릭 시 saved_items 상태를 "읽는 중"으로 자동 전환
+  // fire-and-forget — 읽기 상태 전환 실패가 반응 저장을 블록하면 안 됨
+  if (body.interaction === '웹열기' || body.interaction === '링크클릭') {
+    void markAsReading(body.content_id).catch(() => {
+      // saved_items에 해당 레코드가 없으면 무시 (저장하지 않은 아이템 클릭)
+    });
   }
 
   // 8. 학습 루프: content_items 태그 조회 후 interest_profile 업데이트 (AC1, AC2, AC3)
