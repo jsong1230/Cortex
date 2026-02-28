@@ -619,12 +619,26 @@ export async function selectSerendipityItem(
 }
 
 /**
- * 월간 인사이트 생성 (Phase 4)
+ * 월간 인사이트 생성 (F-22)
+ * lib/monthly-report.ts의 generateReport에 위임
  */
 export async function generateMonthlyInsight(
   monthlyData: Record<string, unknown>,
 ): Promise<string> {
-  // TODO: Phase 4
-  void monthlyData;
-  throw new Error('Not implemented');
+  const { generateReport } = await import('@/lib/monthly-report');
+
+  // MonthlyReportData 형태로 변환 (타입 안전성 보장)
+  const data = {
+    month: (monthlyData.month as string | undefined) ?? '',
+    topTopics: (monthlyData.topTopics as Array<{ topic: string; readCount: number; score: number }> | undefined) ?? [],
+    scoreChanges: (monthlyData.scoreChanges as Array<{ topic: string; oldScore: number; newScore: number; direction: 'up' | 'down' | 'stable' }> | undefined) ?? [],
+    completedItems: (monthlyData.completedItems as number | undefined) ?? 0,
+    savedItems: (monthlyData.savedItems as number | undefined) ?? 0,
+    archivedItems: (monthlyData.archivedItems as number | undefined) ?? 0,
+    mylifeosInsights: (monthlyData.mylifeosInsights as string[] | undefined) ?? [],
+    followUpQuestions: (monthlyData.followUpQuestions as string[] | undefined) ?? [],
+  };
+
+  const result = await generateReport(data);
+  return result.content;
 }
