@@ -16,7 +16,7 @@ vi.mock('@anthropic-ai/sdk', () => {
   };
 });
 
-// Supabase 모킹
+// Supabase 모킹 — thenable 체인 (Supabase JS v2 쿼리 빌더 시뮬레이션)
 vi.mock('@/lib/supabase/server', () => ({
   createServerClient: vi.fn().mockReturnValue({
     from: vi.fn().mockReturnValue({
@@ -27,7 +27,12 @@ vi.mock('@/lib/supabase/server', () => ({
       eq: vi.fn().mockReturnThis(),
       is: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      in: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      then: vi.fn().mockImplementation(
+        (resolve: (value: { data: unknown[]; error: null }) => void) =>
+          resolve({ data: [], error: null }),
+      ),
     }),
   }),
 }));

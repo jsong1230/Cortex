@@ -437,6 +437,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         is_serendipity: item.channel === 'serendipity',
       })),
       telegram_sent_at: new Date().toISOString(),
+      telegram_message_id: telegramMessageId ?? null,
+      mode,
     };
 
     const { error: insertError } = await supabase

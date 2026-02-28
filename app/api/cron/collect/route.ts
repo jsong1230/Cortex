@@ -118,14 +118,15 @@ async function getUnsummarizedItems(): Promise<{ items: SummarizeInput[]; cached
 
 /**
  * 요약 결과를 content_items 테이블에 업데이트
+ * @returns 실패한 업데이트 수 (에러 추적용)
  */
-async function updateSummaries(updates: SummaryUpdateRecord[]): Promise<void> {
-  if (updates.length === 0) return;
+async function updateSummaries(updates: SummaryUpdateRecord[]): Promise<number> {
+  if (updates.length === 0) return 0;
 
   const supabase = createServerClient();
 
   // 아이템별 개별 UPDATE (design.md 섹션 9.3 — 에러 격리 우선)
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     updates.map((update) =>
       supabase
         .from('content_items')
@@ -134,9 +135,29 @@ async function updateSummaries(updates: SummaryUpdateRecord[]): Promise<void> {
           tags: update.tags,
           score_initial: update.scoreInitial,
         })
-        .eq('id', update.id),
+        .eq('id', update.id)
+        .then(({ error }) => {
+          if (error) throw new Error(`${update.id}: ${error.message}`);
+        }),
     ),
   );
+
+  const failedCount = results.filter((r) => r.status === 'rejected').length;
+  if (failedCount > 0) {
+    const failedReasons = results
+      .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+      .map((r) => String(r.reason))
+      .slice(0, 5); // 최대 5개만 로깅
+    // eslint-disable-next-line no-console
+    console.error(JSON.stringify({
+      event: 'cortex_update_summaries_partial_fail',
+      failed: failedCount,
+      total: updates.length,
+      reasons: failedReasons,
+    }));
+  }
+
+  return failedCount;
 }
 
 /**
@@ -254,9 +275,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // WORLD 아이템 필터링: 선정된 것만 요약 대상으로 유지
+  // selectedWorldUrls는 source_url 값이므로, DB id(UUID)로 변환하여 필터링
   if (selectedWorldUrls.size > 0) {
+    const supabaseForWorld = createServerClient();
+    const { data: worldIdRows } = await supabaseForWorld
+      .from('content_items')
+      .select('id')
+      .eq('channel', 'world')
+      .in('source_url', Array.from(selectedWorldUrls));
+
+    const selectedWorldIds = new Set(
+      (worldIdRows ?? []).map((r) => r.id as string),
+    );
+
     unsummarizedItems = unsummarizedItems.filter(
-      (item) => item.channel !== 'world' || selectedWorldUrls.has(item.id),
+      (item) => item.channel !== 'world' || selectedWorldIds.has(item.id),
     );
   }
 
