@@ -1,47 +1,13 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/collect",
-      "schedule": "30 21 * * *"
-    },
-    {
-      "path": "/api/cron/send-briefing",
-      "schedule": "0 22 * * 1-5",
-      "comment": "F-16: 평일(월~금) 브리핑 07:00 KST (UTC 22:00)"
-    },
-    {
-      "path": "/api/cron/send-briefing",
-      "schedule": "0 0 * * 0,6",
-      "comment": "F-16: 주말(토~일) 브리핑 09:00 KST (UTC 00:00)"
-    },
-    {
-      "path": "/api/cron/alerts/check",
-      "schedule": "0 2 * * *",
-      "comment": "F-15: 긴급 알림 체크 (Hobby 플랜 제한으로 일 1회, UTC 02:00 = KST 11:00)"
-    },
-    {
-      "path": "/api/cron/archive-topics",
-      "schedule": "0 3 * * 0"
-    },
-    {
-      "path": "/api/context/sync",
-      "schedule": "0 21 * * *",
-      "comment": "F-18: My Life OS 컨텍스트 동기화 (수집 30분 전, UTC 21:00 = KST 06:00)"
-    },
-    {
-      "path": "/api/cron/snapshot-scores",
-      "schedule": "0 14 * * *",
-      "comment": "F-21: 일별 관심사 스코어 스냅샷 (UTC 14:00 = KST 23:00)"
-    },
-    {
-      "path": "/api/cron/reading-loop",
-      "schedule": "0 15 * * *",
-      "comment": "F-19: 30일 경과 미완독 자동 보관 (UTC 15:00 = KST 00:00)"
-    },
-    {
-      "path": "/api/cron/monthly-report",
-      "schedule": "0 1 1 * *",
-      "comment": "F-22: 매월 1일 AI 월간 리포트 생성 (UTC 01:00 = KST 10:00)"
-    }
+    { "path": "/api/cron/collect", "schedule": "30 21 * * *" },
+    { "path": "/api/cron/send-briefing", "schedule": "0 22 * * 1-5" },
+    { "path": "/api/cron/send-briefing", "schedule": "0 0 * * 0,6" },
+    { "path": "/api/cron/alerts/check", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/archive-topics", "schedule": "0 3 * * 0" },
+    { "path": "/api/context/sync", "schedule": "0 21 * * *" },
+    { "path": "/api/cron/snapshot-scores", "schedule": "0 14 * * *" },
+    { "path": "/api/cron/reading-loop", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/monthly-report", "schedule": "0 1 1 * *" }
   ]
 }
