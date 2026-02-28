@@ -179,11 +179,27 @@ export async function setMute(days: number): Promise<void> {
 
 /**
  * 최근 7일간 사용자 반응이 없으면 true를 반환한다.
+ * Cold-start 보호: 브리핑 이력이 7개 미만이면 false (신규 프로젝트 과도 감소 방지).
  * DB 오류 시 false를 반환한다 (안전 기본값 — 감소 방지).
  */
 export async function checkNoReactionStreak(): Promise<boolean> {
   try {
     const supabase = createServerClient();
+
+    // Cold-start 보호: 충분한 브리핑 이력이 있어야 무반응 판단 가능
+    const { data: briefingRows, error: briefingError } = await supabase
+      .from('briefings')
+      .select('id')
+      .limit(NO_REACTION_DAYS);
+
+    if (briefingError) {
+      return false;
+    }
+
+    if ((briefingRows ?? []).length < NO_REACTION_DAYS) {
+      return false; // 브리핑 이력 부족 → 무반응 판단 불가
+    }
+
     const sevenDaysAgo = new Date(
       Date.now() - NO_REACTION_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();

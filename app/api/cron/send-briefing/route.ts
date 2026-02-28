@@ -251,12 +251,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       if (noReaction) {
         itemReduction = await updateItemReduction();
       } else {
-        // 반응이 있으면 현재 감소량을 읽어서 유지 (반응이 재개됐다고 즉시 복구하지 않음)
+        // 반응이 재개되면 item_reduction을 0으로 리셋
         const { data: settingsRow } = await supabase
           .from('cortex_settings')
           .select('item_reduction')
           .single();
-        itemReduction = (settingsRow?.item_reduction as number | null) ?? 0;
+        const currentReduction = (settingsRow?.item_reduction as number | null) ?? 0;
+        if (currentReduction > 0) {
+          await supabase
+            .from('cortex_settings')
+            .upsert(
+              { id: 'singleton', item_reduction: 0, updated_at: new Date().toISOString() },
+              { onConflict: 'id' },
+            );
+        }
+        itemReduction = 0;
       }
     } catch {
       // 감소량 조회 실패 시 0으로 처리 (안전 기본값)

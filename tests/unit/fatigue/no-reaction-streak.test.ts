@@ -9,6 +9,9 @@ let mockInteractionError: { message: string } | null = null;
 let mockSettingsRow: Record<string, unknown> | null = null;
 let mockSettingsError: { message: string } | null = null;
 let mockUpsertError: { message: string } | null = null;
+// Cold-start 보호: briefings 테이블 mock (7개 이상이면 무반응 판단 허용)
+let mockBriefingRows: unknown[] = Array.from({ length: 7 }, (_, i) => ({ id: `b-${i}` }));
+let mockBriefingError: { message: string } | null = null;
 
 // select 체인을 위한 유연한 모킹
 const buildSelectChain = (rows: unknown[], error: { message: string } | null) => ({
@@ -17,6 +20,7 @@ const buildSelectChain = (rows: unknown[], error: { message: string } | null) =>
   filter: vi.fn().mockReturnThis(),
   not: vi.fn().mockReturnThis(),
   in: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
   single: vi.fn().mockImplementation(async () => ({ data: mockSettingsRow, error: mockSettingsError })),
   then: vi.fn().mockImplementation((cb: (v: unknown) => unknown) =>
     Promise.resolve(cb({ data: rows, error }))
@@ -30,6 +34,9 @@ vi.mock('@/lib/supabase/server', () => ({
     from: vi.fn().mockImplementation((table: string) => {
       if (table === 'user_interactions') {
         return buildSelectChain(mockInteractionRows, mockInteractionError);
+      }
+      if (table === 'briefings') {
+        return buildSelectChain(mockBriefingRows, mockBriefingError);
       }
       // cortex_settings
       return {
@@ -60,6 +67,9 @@ describe('checkNoReactionStreak', () => {
     mockInteractionError = null;
     mockSettingsRow = null;
     mockSettingsError = null;
+    // 기본: 충분한 브리핑 이력 (cold-start 보호 통과)
+    mockBriefingRows = Array.from({ length: 7 }, (_, i) => ({ id: `b-${i}` }));
+    mockBriefingError = null;
   });
 
   it('AC3-1: 최근 7일간 반응이 없으면 true를 반환한다', async () => {
@@ -80,6 +90,24 @@ describe('checkNoReactionStreak', () => {
 
   it('AC3-3: DB 오류 시 false를 반환한다 (안전 기본값)', async () => {
     mockInteractionError = { message: 'DB 오류' };
+
+    const result = await checkNoReactionStreak();
+
+    expect(result).toBe(false);
+  });
+
+  it('AC3-8: 브리핑 이력이 7개 미만이면 false를 반환한다 (cold-start 보호)', async () => {
+    mockBriefingRows = [{ id: 'b-0' }, { id: 'b-1' }]; // 2개만
+    mockInteractionRows = [];
+
+    const result = await checkNoReactionStreak();
+
+    expect(result).toBe(false);
+  });
+
+  it('AC3-9: 브리핑 이력 조회 실패 시 false를 반환한다', async () => {
+    mockBriefingError = { message: 'DB 오류' };
+    mockInteractionRows = [];
 
     const result = await checkNoReactionStreak();
 
