@@ -54,12 +54,25 @@ function verifyCronSecret(request: NextRequest): boolean {
 
 /**
  * 수집된 아이템을 content_items 테이블에 upsert (source_url 기준 중복 방지)
- * @returns upsert된 아이템 수
+ * @returns { upserted: 전체 수, duplicates: 기존 존재 수 }
  */
-async function insertContentItems(items: CollectedItem[]): Promise<number> {
-  if (items.length === 0) return 0;
+async function insertContentItems(items: CollectedItem[]): Promise<{ upserted: number; duplicates: number }> {
+  if (items.length === 0) return { upserted: 0, duplicates: 0 };
 
   const supabase = createServerClient();
+
+  // 중복 카운트: 기존에 존재하는 source_url 조회
+  const sourceUrls = items.map((item) => item.source_url);
+  let duplicates = 0;
+  try {
+    const { data: existingRows } = await supabase
+      .from('content_items')
+      .select('source_url')
+      .in('source_url', sourceUrls);
+    duplicates = (existingRows ?? []).length;
+  } catch {
+    // 카운트 실패는 non-fatal
+  }
 
   // tags를 레코드에서 제외: AI 요약 시 덮어쓰이므로 기존 AI tags 보존
   // collected_at을 명시: 재수집 시 갱신되어 send-briefing 시간 필터와 정합성 유지
@@ -82,7 +95,7 @@ async function insertContentItems(items: CollectedItem[]): Promise<number> {
     throw new Error(`content_items upsert 실패: ${error.message}`);
   }
 
-  return records.length;
+  return { upserted: records.length, duplicates };
 }
 
 /**
@@ -228,7 +241,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // 2. 수집된 아이템을 content_items에 upsert (source_url 기준 중복 방지)
   if (allCollectedItems.length > 0) {
     try {
-      await insertContentItems(allCollectedItems);
+      const insertResult = await insertContentItems(allCollectedItems);
+      result.duplicatesSkipped = insertResult.duplicates;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'DB INSERT 실패';
       result.errors.push(`DB_INSERT_FAILED: ${errorMessage}`);
