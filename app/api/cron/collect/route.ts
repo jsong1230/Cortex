@@ -18,7 +18,7 @@ interface ContentItemRecord {
   title: string;
   full_text?: string;
   published_at?: string;
-  tags?: string[];
+  collected_at: string;  // 재수집 시 갱신 (send-briefing 시간 필터 정합성)
 }
 
 /** DB에서 조회된 미요약 아이템 */
@@ -61,6 +61,9 @@ async function insertContentItems(items: CollectedItem[]): Promise<number> {
 
   const supabase = createServerClient();
 
+  // tags를 레코드에서 제외: AI 요약 시 덮어쓰이므로 기존 AI tags 보존
+  // collected_at을 명시: 재수집 시 갱신되어 send-briefing 시간 필터와 정합성 유지
+  const now = new Date().toISOString();
   const records: ContentItemRecord[] = items.map((item) => ({
     channel: item.channel,
     source: item.source,
@@ -68,12 +71,12 @@ async function insertContentItems(items: CollectedItem[]): Promise<number> {
     title: item.title,
     full_text: item.full_text,
     published_at: item.published_at?.toISOString(),
-    tags: item.tags,
+    collected_at: now,
   }));
 
   const { error } = await supabase
     .from('content_items')
-    .upsert(records, { onConflict: 'source_url', ignoreDuplicates: true });
+    .upsert(records, { onConflict: 'source_url' });
 
   if (error) {
     throw new Error(`content_items upsert 실패: ${error.message}`);
