@@ -80,7 +80,7 @@ describe('getMuteStatus', () => {
     expect(result.isMuted).toBe(false);
   });
 
-  it('AC2-4: user_settings 행이 없으면 뮤트 상태가 아니다', async () => {
+  it('AC2-4: cortex_settings 행이 없으면 뮤트 상태가 아니다', async () => {
     mockSingle.mockResolvedValueOnce({ data: null, error: null });
 
     const result = await getMuteStatus();

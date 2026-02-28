@@ -31,7 +31,7 @@ vi.mock('@/lib/supabase/server', () => ({
       if (table === 'user_interactions') {
         return buildSelectChain(mockInteractionRows, mockInteractionError);
       }
-      // user_settings
+      // cortex_settings
       return {
         select: vi.fn().mockReturnValue({
           single: vi.fn().mockImplementation(async () => ({
@@ -123,7 +123,7 @@ describe('updateItemReduction', () => {
     expect(newReduction).toBe(4);
   });
 
-  it('AC3-7: user_settings가 없으면 0에서 시작해 2로 증가한다', async () => {
+  it('AC3-7: cortex_settings가 없으면 0에서 시작해 2로 증가한다', async () => {
     mockSettingsRow = null;
 
     const newReduction = await updateItemReduction();

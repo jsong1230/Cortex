@@ -5,12 +5,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 
-/** user_settings에서 mylifeos_enabled 값을 읽어온다 */
+/** cortex_settings에서 mylifeos_enabled 값을 읽어온다 */
 async function getMyLifeOsEnabled(): Promise<boolean> {
   try {
     const supabase = createServerClient();
     const { data, error } = await supabase
-      .from('user_settings')
+      .from('cortex_settings')
       .select('mylifeos_enabled')
       .single();
 
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = createServerClient();
     const { error } = await supabase
-      .from('user_settings')
+      .from('cortex_settings')
       .upsert(
         {
           id: 'singleton',

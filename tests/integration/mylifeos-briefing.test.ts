@@ -122,7 +122,7 @@ describe('POST /api/context/sync — F-18 동기화', () => {
     tableDataMap['diary_entries'] = mockDiaryEntries;
     tableDataMap['todos'] = [];
     tableDataMap['notes'] = [];
-    tableDataMap['user_settings'] = mockUserSettings;
+    tableDataMap['cortex_settings'] = mockUserSettings;
     tableDataMap['interest_profile'] = [];
     tableDataMap['briefings'] = [];
 
@@ -186,7 +186,7 @@ describe('POST /api/context/sync — F-18 동기화', () => {
   });
 
   it('F18-I-4: mylifeos_enabled=false이면 동기화를 건너뛴다', async () => {
-    tableDataMap['user_settings'] = [{ id: 'singleton', mylifeos_enabled: false }];
+    tableDataMap['cortex_settings'] = [{ id: 'singleton', mylifeos_enabled: false }];
 
     const { POST } = await import('@/app/api/context/sync/route');
     const request = new NextRequest('http://localhost/api/context/sync', {
@@ -213,7 +213,7 @@ describe('컨텍스트 인식 브리핑 (AC4)', () => {
 
     tableDataMap['content_items'] = mockContentItems;
     tableDataMap['keyword_contexts'] = mockKeywordContexts;
-    tableDataMap['user_settings'] = [
+    tableDataMap['cortex_settings'] = [
       {
         id: 'singleton',
         mylifeos_enabled: true,

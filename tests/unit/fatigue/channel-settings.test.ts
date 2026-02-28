@@ -47,7 +47,7 @@ describe('getChannelSettings', () => {
     mockSingle.mockImplementation(async () => ({ data: mockRow, error: mockError }));
   });
 
-  it('AC1-1: user_settings가 없으면 기본값(모두 ON)을 반환한다', async () => {
+  it('AC1-1: cortex_settings가 없으면 기본값(모두 ON)을 반환한다', async () => {
     mockRow = null;
     mockSingle.mockResolvedValueOnce({ data: null, error: null });
 
@@ -60,7 +60,7 @@ describe('getChannelSettings', () => {
     expect(result.canada).toBe(true);
   });
 
-  it('AC1-2: user_settings 행이 있으면 저장된 채널 설정을 반환한다', async () => {
+  it('AC1-2: cortex_settings 행이 있으면 저장된 채널 설정을 반환한다', async () => {
     const storedSettings: ChannelSettings = {
       tech: true,
       world: false,

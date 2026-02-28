@@ -28,11 +28,11 @@ function isValidUrl(urlStr: string): boolean {
   }
 }
 
-/** user_settings에서 custom_rss_urls를 읽어온다 */
+/** cortex_settings에서 custom_rss_urls를 읽어온다 */
 async function getRssUrls(): Promise<RssSource[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
-    .from('user_settings')
+    .from('cortex_settings')
     .select('custom_rss_urls')
     .single();
 
@@ -44,11 +44,11 @@ async function getRssUrls(): Promise<RssSource[]> {
   return Array.isArray(urls) ? urls : [];
 }
 
-/** user_settings에 custom_rss_urls를 저장한다 */
+/** cortex_settings에 custom_rss_urls를 저장한다 */
 async function saveRssUrls(urls: RssSource[]): Promise<{ error: { message: string } | null }> {
   const supabase = createServerClient();
   const result = await supabase
-    .from('user_settings')
+    .from('cortex_settings')
     .upsert(
       {
         id: 'singleton',

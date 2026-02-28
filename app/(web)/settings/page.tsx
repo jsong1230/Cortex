@@ -67,7 +67,7 @@ export default async function SettingsPage() {
 
   // 3. RSS 소스
   const { data: userSettingsData } = await supabase
-    .from('user_settings')
+    .from('cortex_settings')
     .select('custom_rss_urls, mylifeos_enabled')
     .single();
 

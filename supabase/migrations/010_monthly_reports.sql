@@ -3,25 +3,7 @@
 -- AC1: 매월 1일에 리포트 생성
 -- AC3: 텔레그램 + 웹 /insights에서 조회 가능
 
--- ============================================================
--- score_history — 관심사 점수 변화 이력 테이블 (F-21/F-22 공용)
--- ============================================================
-CREATE TABLE IF NOT EXISTS score_history (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  topic       TEXT NOT NULL,
-  score       NUMERIC(4, 3) NOT NULL,   -- 0.000 ~ 1.000
-  recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- score_history 인덱스
-CREATE INDEX IF NOT EXISTS idx_score_history_topic
-  ON score_history(topic);
-
-CREATE INDEX IF NOT EXISTS idx_score_history_recorded_at
-  ON score_history(recorded_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_score_history_topic_recorded_at
-  ON score_history(topic, recorded_at DESC);
+-- score_history 테이블은 009_score_history.sql에서 이미 생성됨
 
 -- ============================================================
 -- monthly_reports — AI 월간 리포트 저장 테이블
@@ -43,20 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_monthly_reports_report_month
 CREATE INDEX IF NOT EXISTS idx_monthly_reports_generated_at
   ON monthly_reports(generated_at DESC);
 
--- ============================================================
--- RLS 정책 (score_history)
--- ============================================================
-ALTER TABLE score_history ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "score_history_select_policy"
-  ON score_history FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY "score_history_insert_policy"
-  ON score_history FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
+-- score_history RLS 정책은 009_score_history.sql에서 이미 설정됨
 
 -- ============================================================
 -- RLS 정책 (monthly_reports)

@@ -253,7 +253,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       } else {
         // 반응이 있으면 현재 감소량을 읽어서 유지 (반응이 재개됐다고 즉시 복구하지 않음)
         const { data: settingsRow } = await supabase
-          .from('user_settings')
+          .from('cortex_settings')
           .select('item_reduction')
           .single();
         itemReduction = (settingsRow?.item_reduction as number | null) ?? 0;

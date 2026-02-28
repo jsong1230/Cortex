@@ -51,20 +51,20 @@ const NO_REACTION_DAYS = 7;
 /** 반복 이슈 감지 최소 연속일 */
 const REPEAT_ISSUE_DAYS = 3;
 
-/** user_settings 테이블 싱글톤 행 식별자 */
+/** cortex_settings 테이블 싱글톤 행 식별자 */
 const SINGLETON_SETTINGS_ID = 'singleton';
 
 // ─── 채널 설정 ────────────────────────────────────────────────────────────────
 
 /**
- * user_settings에서 채널 ON/OFF 설정을 읽어온다.
+ * cortex_settings에서 채널 ON/OFF 설정을 읽어온다.
  * 행이 없거나 DB 오류 시 기본값(모두 ON)을 반환한다.
  */
 export async function getChannelSettings(): Promise<ChannelSettings> {
   try {
     const supabase = createServerClient();
     const { data, error } = await supabase
-      .from('user_settings')
+      .from('cortex_settings')
       .select('channel_settings')
       .single();
 
@@ -84,7 +84,7 @@ export async function getChannelSettings(): Promise<ChannelSettings> {
 }
 
 /**
- * user_settings에 채널 ON/OFF 설정을 저장한다.
+ * cortex_settings에 채널 ON/OFF 설정을 저장한다.
  * 싱글톤 행 UPSERT 방식으로 처리한다.
  */
 export async function updateChannelSettings(
@@ -93,7 +93,7 @@ export async function updateChannelSettings(
   try {
     const supabase = createServerClient();
     const error = await supabase
-      .from('user_settings')
+      .from('cortex_settings')
       .upsert(
         {
           id: SINGLETON_SETTINGS_ID,
@@ -124,7 +124,7 @@ export async function getMuteStatus(): Promise<MuteStatus> {
   try {
     const supabase = createServerClient();
     const { data, error } = await supabase
-      .from('user_settings')
+      .from('cortex_settings')
       .select('mute_until')
       .single();
 
@@ -160,7 +160,7 @@ export async function setMute(days: number): Promise<void> {
 
   const supabase = createServerClient();
   const { error } = await supabase
-    .from('user_settings')
+    .from('cortex_settings')
     .upsert(
       {
         id: SINGLETON_SETTINGS_ID,
@@ -213,7 +213,7 @@ export async function updateItemReduction(): Promise<number> {
 
   // 현재 값 조회
   const { data } = await supabase
-    .from('user_settings')
+    .from('cortex_settings')
     .select('item_reduction')
     .single();
 
@@ -221,7 +221,7 @@ export async function updateItemReduction(): Promise<number> {
   const next = Math.min(current + 2, MAX_ITEM_REDUCTION);
 
   await supabase
-    .from('user_settings')
+    .from('cortex_settings')
     .upsert(
       {
         id: SINGLETON_SETTINGS_ID,

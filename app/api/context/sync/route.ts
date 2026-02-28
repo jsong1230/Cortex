@@ -12,14 +12,14 @@ function verifyCronSecret(request: NextRequest): boolean {
 }
 
 /**
- * user_settings에서 mylifeos_enabled 값을 읽어온다
+ * cortex_settings에서 mylifeos_enabled 값을 읽어온다
  * 설정이 없거나 오류 시 false 반환 (AC5)
  */
 async function isMyLifeOsEnabled(): Promise<boolean> {
   try {
     const supabase = createServerClient();
     const { data, error } = await supabase
-      .from('user_settings')
+      .from('cortex_settings')
       .select('mylifeos_enabled')
       .single();
 

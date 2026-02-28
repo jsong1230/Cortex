@@ -18,47 +18,55 @@ ALTER TABLE keyword_contexts ENABLE ROW LEVEL SECURITY;
 -- ============================================================
 
 -- content_items: 인증된 사용자만 읽기
-CREATE POLICY IF NOT EXISTS "authenticated_read_content_items"
+DROP POLICY IF EXISTS "authenticated_read_content_items" ON content_items;
+CREATE POLICY "authenticated_read_content_items"
   ON content_items
   FOR SELECT
   USING (auth.role() = 'authenticated');
 
 -- briefings: 인증된 사용자만 읽기
-CREATE POLICY IF NOT EXISTS "authenticated_read_briefings"
+DROP POLICY IF EXISTS "authenticated_read_briefings" ON briefings;
+CREATE POLICY "authenticated_read_briefings"
   ON briefings
   FOR SELECT
   USING (auth.role() = 'authenticated');
 
 -- user_interactions: 인증된 사용자만 읽기/쓰기
-CREATE POLICY IF NOT EXISTS "authenticated_read_interactions"
+DROP POLICY IF EXISTS "authenticated_read_interactions" ON user_interactions;
+CREATE POLICY "authenticated_read_interactions"
   ON user_interactions
   FOR SELECT
   USING (auth.role() = 'authenticated');
 
-CREATE POLICY IF NOT EXISTS "authenticated_insert_interactions"
+DROP POLICY IF EXISTS "authenticated_insert_interactions" ON user_interactions;
+CREATE POLICY "authenticated_insert_interactions"
   ON user_interactions
   FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
 
 -- interest_profile: 인증된 사용자만 읽기
-CREATE POLICY IF NOT EXISTS "authenticated_read_interest_profile"
+DROP POLICY IF EXISTS "authenticated_read_interest_profile" ON interest_profile;
+CREATE POLICY "authenticated_read_interest_profile"
   ON interest_profile
   FOR SELECT
   USING (auth.role() = 'authenticated');
 
 -- alert_settings: 인증된 사용자만 읽기/수정
-CREATE POLICY IF NOT EXISTS "authenticated_read_alert_settings"
+DROP POLICY IF EXISTS "authenticated_read_alert_settings" ON alert_settings;
+CREATE POLICY "authenticated_read_alert_settings"
   ON alert_settings
   FOR SELECT
   USING (auth.role() = 'authenticated');
 
-CREATE POLICY IF NOT EXISTS "authenticated_update_alert_settings"
+DROP POLICY IF EXISTS "authenticated_update_alert_settings" ON alert_settings;
+CREATE POLICY "authenticated_update_alert_settings"
   ON alert_settings
   FOR UPDATE
   USING (auth.role() = 'authenticated');
 
 -- keyword_contexts: 인증된 사용자만 읽기
-CREATE POLICY IF NOT EXISTS "authenticated_read_keyword_contexts"
+DROP POLICY IF EXISTS "authenticated_read_keyword_contexts" ON keyword_contexts;
+CREATE POLICY "authenticated_read_keyword_contexts"
   ON keyword_contexts
   FOR SELECT
   USING (auth.role() = 'authenticated');

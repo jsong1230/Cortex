@@ -33,6 +33,11 @@
       "comment": "F-21: 일별 관심사 스코어 스냅샷 (UTC 14:00 = KST 23:00)"
     },
     {
+      "path": "/api/cron/reading-loop",
+      "schedule": "0 15 * * *",
+      "comment": "F-19: 30일 경과 미완독 자동 보관 (UTC 15:00 = KST 00:00)"
+    },
+    {
       "path": "/api/cron/monthly-report",
       "schedule": "0 1 1 * *",
       "comment": "F-22: 매월 1일 AI 월간 리포트 생성 (UTC 01:00 = KST 10:00)"
