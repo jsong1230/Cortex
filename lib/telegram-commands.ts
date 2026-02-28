@@ -144,18 +144,21 @@ async function insertInteraction(
     source: 'telegram_bot',
   };
 
-  if (interaction === '메모') {
-    // 메모는 복수 허용 → 항상 INSERT
-    const { error } = await supabase.from('user_interactions').insert(data);
-    if (error) throw new Error(`interaction insert 실패: ${error.message}`);
-  } else {
-    // 메모 외 반응: UPSERT (중복 방지)
-    const { error } = await supabase.from('user_interactions').upsert(data, {
-      onConflict: 'content_id,interaction',
-      ignoreDuplicates: true,
-    });
-    if (error) throw new Error(`interaction upsert 실패: ${error.message}`);
+  // unique constraint가 없을 수 있으므로 INSERT로 통일
+  // 중복 방지는 INSERT 전 기존 레코드 확인으로 처리
+  if (interaction !== '메모') {
+    const { data: existing } = await supabase
+      .from('user_interactions')
+      .select('id')
+      .eq('content_id', contentId)
+      .eq('interaction', interaction)
+      .limit(1);
+
+    if (existing && existing.length > 0) return; // 이미 존재 → 스킵
   }
+
+  const { error } = await supabase.from('user_interactions').insert(data);
+  if (error) throw new Error(`interaction insert 실패: ${error.message}`);
 }
 
 // ─── handleGood ─────────────────────────────────────────────────────────────
