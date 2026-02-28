@@ -417,6 +417,9 @@ export async function dispatchCommand(
 ): Promise<void> {
   let responseText: string;
 
+  // eslint-disable-next-line no-console
+  console.info(JSON.stringify({ event: 'cortex_command_dispatch', command: parsed.command, args: parsed.args }));
+
   switch (parsed.command) {
     case 'good':
       responseText = await handleGood();
@@ -466,6 +469,9 @@ export async function dispatchCommand(
       responseText = handleUnknown(parsed.command);
       break;
   }
+
+  // eslint-disable-next-line no-console
+  console.info(JSON.stringify({ event: 'cortex_command_response', command: parsed.command, response: responseText.slice(0, 100) }));
 
   await sendMessage({ text: responseText });
 }
