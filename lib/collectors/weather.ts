@@ -2,6 +2,8 @@
 // Current Weather: /data/2.5/weather
 // 5 Day Forecast:  /data/2.5/forecast
 
+import { fetchWithRetry } from './utils';
+
 const OWM_BASE = 'https://api.openweathermap.org/data/2.5';
 
 export interface WeatherData {
@@ -43,7 +45,7 @@ export async function getTorontoWeather(): Promise<WeatherData> {
     appid: apiKey,
   });
 
-  const response = await fetch(`${OWM_BASE}/weather?${params}`);
+  const response = await fetchWithRetry(`${OWM_BASE}/weather?${params}`, { timeout: 10000 });
   if (!response.ok) {
     throw new Error(`날씨 API 호출 실패: ${response.status}`);
   }

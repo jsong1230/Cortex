@@ -156,12 +156,10 @@ describe('collectMultipleRssFeeds', () => {
   });
 
   it('일부 피드 실패 시 성공한 피드 데이터만 반환하고 console.error를 호출한다', async () => {
-    // Arrange
+    // Arrange: feed2는 모든 시도에서 실패 (재시도 포함)
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    let callCount = 0;
-    parseURLSpy.mockImplementation(() => {
-      callCount++;
-      if (callCount === 2) {
+    parseURLSpy.mockImplementation((url: string) => {
+      if (url === 'https://feed2.com') {
         return Promise.reject(new Error('피드 실패'));
       }
       return Promise.resolve({ items: makeFeedItems(5) });

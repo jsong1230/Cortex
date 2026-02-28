@@ -45,26 +45,39 @@ export function rssItemToCollectedItem(rssItem: RssCollectedItem): CollectedItem
 }
 
 /**
- * RSS 피드 단일 수집
+ * RSS 피드 단일 수집 (최대 2회 재시도, 지수 백오프)
  */
 export async function collectRssFeed(
   config: RssFeedConfig
 ): Promise<RssCollectedItem[]> {
   const limit = config.limit ?? 20;
+  const maxRetries = 2;
 
-  const feed = await parser.parseURL(config.url);
-  const items = feed.items.slice(0, limit);
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const feed = await parser.parseURL(config.url);
+      const items = feed.items.slice(0, limit);
 
-  return items
-    .filter((item) => item.link && item.title)
-    .map((item) => ({
-      channel: config.channel,
-      source: config.source,
-      sourceUrl: item.link!,
-      title: item.title!,
-      fullText: item.contentSnippet ?? item.content,
-      publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
-    }));
+      return items
+        .filter((item) => item.link && item.title)
+        .map((item) => ({
+          channel: config.channel,
+          source: config.source,
+          sourceUrl: item.link!,
+          title: item.title!,
+          fullText: item.contentSnippet ?? item.content,
+          publishedAt: item.pubDate ? new Date(item.pubDate) : undefined,
+        }));
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 1000));
+      }
+    }
+  }
+
+  throw lastError ?? new Error(`RSS 수집 실패: ${config.source}`);
 }
 
 /**
