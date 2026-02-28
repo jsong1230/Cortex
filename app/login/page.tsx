@@ -10,7 +10,7 @@
  * - 모바일 중앙 정렬, max-width 400px
  */
 import type { Metadata } from 'next';
-import { TelegramLoginButton } from '@/components/auth/TelegramLoginButton';
+import { OTPLoginForm } from '@/components/auth/OTPLoginForm';
 
 export const metadata: Metadata = {
   title: '로그인 — Cortex',
@@ -18,13 +18,7 @@ export const metadata: Metadata = {
   robots: 'noindex, nofollow',
 };
 
-interface LoginPageProps {
-  searchParams: { redirect?: string };
-}
-
-export default function LoginPage({ searchParams }: LoginPageProps) {
-  const redirectPath = searchParams.redirect ?? '/';
-
+export default function LoginPage() {
   return (
     <main
       className="min-h-screen flex items-center justify-center px-4"
@@ -54,9 +48,9 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
           </p>
         </div>
 
-        {/* 로그인 버튼 영역 */}
+        {/* OTP 로그인 영역 */}
         <div className="w-full flex flex-col items-center">
-          <TelegramLoginButton redirectPath={redirectPath} />
+          <OTPLoginForm />
         </div>
 
         {/* 안내 문구 */}
