@@ -125,7 +125,7 @@ const makeRequestNoAuth = () =>
 
 // ─── I-01: CRON_SECRET 인증 ─────────────────────────────────────────────────
 
-describe('POST /api/cron/send-briefing — 인증', () => {
+describe('GET /api/cron/send-briefing — 인증', () => {
   beforeEach(() => {
     process.env.CRON_SECRET = 'test-cron-secret-123';
     process.env.TELEGRAM_BOT_TOKEN = 'test-bot-token';
@@ -145,10 +145,10 @@ describe('POST /api/cron/send-briefing — 인증', () => {
   });
 
   it('I-01-1: Authorization 헤더가 없으면 401을 반환한다', async () => {
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
 
     const request = makeRequestNoAuth();
-    const response = await POST(request);
+    const response = await GET(request);
     const data = await response.json();
 
     expect(response.status).toBe(401);
@@ -157,10 +157,10 @@ describe('POST /api/cron/send-briefing — 인증', () => {
   });
 
   it('I-01-2: 잘못된 CRON_SECRET이면 401을 반환한다', async () => {
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
 
     const request = makeRequest('wrong-secret');
-    const response = await POST(request);
+    const response = await GET(request);
     const data = await response.json();
 
     expect(response.status).toBe(401);
@@ -170,9 +170,9 @@ describe('POST /api/cron/send-briefing — 인증', () => {
   it('I-01-3: 올바른 CRON_SECRET이면 인증을 통과하여 처리가 진행된다', async () => {
     supabaseQueryResolve = () => Promise.resolve({ data: [], error: null });
 
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
     const request = makeRequest();
-    const response = await POST(request);
+    const response = await GET(request);
 
     expect(response.status).not.toBe(401);
   });
@@ -180,7 +180,7 @@ describe('POST /api/cron/send-briefing — 인증', () => {
 
 // ─── I-02: 전체 발송 흐름 ───────────────────────────────────────────────────
 
-describe('POST /api/cron/send-briefing — 발송 흐름', () => {
+describe('GET /api/cron/send-briefing — 발송 흐름', () => {
   beforeEach(() => {
     process.env.CRON_SECRET = 'test-cron-secret-123';
     process.env.TELEGRAM_BOT_TOKEN = 'test-bot-token';
@@ -203,8 +203,8 @@ describe('POST /api/cron/send-briefing — 발송 흐름', () => {
   it('I-02-1: 정상 흐름 — Supabase 조회 → 발송 → briefings INSERT → 200 성공', async () => {
     mockFetch.mockReturnValue(makeTelegramSuccess());
 
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
-    const response = await POST(makeRequest());
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
+    const response = await GET(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -215,8 +215,8 @@ describe('POST /api/cron/send-briefing — 발송 흐름', () => {
   it('I-02-2: 응답 구조가 { success, data: { briefing_date, items_count, telegram_sent, channels } }이다', async () => {
     mockFetch.mockReturnValue(makeTelegramSuccess());
 
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
-    const response = await POST(makeRequest());
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
+    const response = await GET(makeRequest());
     const data = await response.json();
 
     expect(data.success).toBe(true);
@@ -234,8 +234,8 @@ describe('POST /api/cron/send-briefing — 발송 흐름', () => {
     const insertSpy = vi.fn().mockResolvedValue({ data: [{ id: 'briefing-uuid' }], error: null });
     currentChain.insert = insertSpy;
 
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
-    await POST(makeRequest());
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
+    await GET(makeRequest());
 
     // from('briefings')에서 insert가 호출됐는지 확인
     expect(mockFrom).toHaveBeenCalledWith('briefings');
@@ -249,8 +249,8 @@ describe('POST /api/cron/send-briefing — 발송 흐름', () => {
   it('I-02-4: Telegram 발송이 2회 모두 실패하면 에러를 로깅하고 500을 반환한다', async () => {
     mockFetch.mockReturnValue(makeTelegramFail());
 
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
-    const response = await POST(makeRequest());
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
+    const response = await GET(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(500);
@@ -260,8 +260,8 @@ describe('POST /api/cron/send-briefing — 발송 흐름', () => {
   it('I-02-5: 오늘 아이템이 없으면 items_count: 0, telegram_sent: false를 반환한다', async () => {
     supabaseQueryResolve = () => Promise.resolve({ data: [], error: null });
 
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
-    const response = await POST(makeRequest());
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
+    const response = await GET(makeRequest());
     const data = await response.json();
 
     expect(response.status).toBe(200);

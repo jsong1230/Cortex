@@ -131,7 +131,7 @@ function makeClaudeResponse(text: string) {
 
 // ─── 통합 테스트 스위트 ──────────────────────────────────────────────────────
 
-describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F-22)', () => {
+describe('GET /api/cron/monthly-report — 전체 플로우 통합 테스트 (F-22)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
@@ -223,8 +223,8 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   });
 
   it('INT-01: 인증된 cron 요청 시 200과 success:true를 반환한다', async () => {
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
-    const response = await POST(makeCronRequest());
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
+    const response = await GET(makeCronRequest());
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -232,12 +232,12 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   });
 
   it('INT-02: cron secret 없으면 401을 반환한다', async () => {
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
     const request = new NextRequest('http://localhost/api/cron/monthly-report', {
       method: 'POST',
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -245,8 +245,8 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   });
 
   it('INT-03: 응답에 report_month가 포함된다', async () => {
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
-    const response = await POST(makeCronRequest());
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
+    const response = await GET(makeCronRequest());
     const body = await response.json();
 
     expect(body.data).toBeDefined();
@@ -256,8 +256,8 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   });
 
   it('INT-04: monthly_reports 테이블에 삽입이 호출된다 (saveReport)', async () => {
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
-    await POST(makeCronRequest());
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
+    await GET(makeCronRequest());
 
     // monthly_reports 테이블에 insert가 호출되어야 함
     expect(mockInsert).toHaveBeenCalled();
@@ -268,8 +268,8 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   });
 
   it('INT-05: 텔레그램 sendMessage가 호출된다 (AC3)', async () => {
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
-    await POST(makeCronRequest());
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
+    await GET(makeCronRequest());
 
     expect(mockSendMessage).toHaveBeenCalled();
   });
@@ -277,8 +277,8 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   it('INT-06: ANTHROPIC_API_KEY 없으면 500을 반환한다', async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
-    const response = await POST(makeCronRequest());
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
+    const response = await GET(makeCronRequest());
     const body = await response.json();
 
     expect(response.status).toBe(500);
@@ -288,8 +288,8 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   it('INT-07: 텔레그램 발송 실패 시에도 리포트 저장은 완료된다', async () => {
     mockSendMessage.mockRejectedValueOnce(new Error('텔레그램 발송 실패'));
 
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
-    const response = await POST(makeCronRequest());
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
+    const response = await GET(makeCronRequest());
     const body = await response.json();
 
     // 텔레그램 실패는 non-fatal → 200 응답
@@ -300,8 +300,8 @@ describe('POST /api/cron/monthly-report — 전체 플로우 통합 테스트 (F
   });
 
   it('INT-08: 응답에 telegram_sent 필드가 포함된다', async () => {
-    const { POST } = await import('@/app/api/cron/monthly-report/route');
-    const response = await POST(makeCronRequest());
+    const { GET } = await import('@/app/api/cron/monthly-report/route');
+    const response = await GET(makeCronRequest());
     const body = await response.json();
 
     expect(typeof body.data.telegram_sent).toBe('boolean');

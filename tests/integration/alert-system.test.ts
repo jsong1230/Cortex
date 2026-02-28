@@ -1,5 +1,5 @@
 // F-15 긴급 알림 시스템 통합 테스트 (RED → GREEN)
-// 전체 알림 플로우: Cron POST → processAlertTriggers → 텔레그램 발송
+// 전체 알림 플로우: Cron GET → processAlertTriggers → 텔레그램 발송
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -32,9 +32,9 @@ const makeRequest = (authHeader?: string) =>
     headers: authHeader ? { authorization: authHeader } : {},
   });
 
-// ─── POST /api/cron/alerts/check ─────────────────────────────────────────────
+// ─── GET /api/cron/alerts/check ─────────────────────────────────────────────
 
-describe('POST /api/cron/alerts/check (AC1)', () => {
+describe('GET /api/cron/alerts/check (AC1)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockProcessAlertTriggers.mockResolvedValue({
@@ -46,10 +46,10 @@ describe('POST /api/cron/alerts/check (AC1)', () => {
   });
 
   it('AC1: 유효한 CRON_SECRET으로 요청 시 200 + success: true 반환', async () => {
-    const { POST } = await import('@/app/api/cron/alerts/check/route');
+    const { GET } = await import('@/app/api/cron/alerts/check/route');
     const request = makeRequest('Bearer test-cron-secret-123');
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -57,10 +57,10 @@ describe('POST /api/cron/alerts/check (AC1)', () => {
   });
 
   it('인증 헤더 없으면 401 반환', async () => {
-    const { POST } = await import('@/app/api/cron/alerts/check/route');
+    const { GET } = await import('@/app/api/cron/alerts/check/route');
     const request = makeRequest();
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -68,10 +68,10 @@ describe('POST /api/cron/alerts/check (AC1)', () => {
   });
 
   it('잘못된 CRON_SECRET이면 401 반환', async () => {
-    const { POST } = await import('@/app/api/cron/alerts/check/route');
+    const { GET } = await import('@/app/api/cron/alerts/check/route');
     const request = makeRequest('Bearer wrong-secret');
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -79,10 +79,10 @@ describe('POST /api/cron/alerts/check (AC1)', () => {
   });
 
   it('AC1: processAlertTriggers가 호출된다', async () => {
-    const { POST } = await import('@/app/api/cron/alerts/check/route');
+    const { GET } = await import('@/app/api/cron/alerts/check/route');
     const request = makeRequest('Bearer test-cron-secret-123');
 
-    await POST(request);
+    await GET(request);
 
     expect(mockProcessAlertTriggers).toHaveBeenCalledOnce();
   });
@@ -94,10 +94,10 @@ describe('POST /api/cron/alerts/check (AC1)', () => {
       errors: [],
     });
 
-    const { POST } = await import('@/app/api/cron/alerts/check/route');
+    const { GET } = await import('@/app/api/cron/alerts/check/route');
     const request = makeRequest('Bearer test-cron-secret-123');
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -108,10 +108,10 @@ describe('POST /api/cron/alerts/check (AC1)', () => {
   it('processAlertTriggers 내부 오류가 발생해도 200 반환 (에러 격리)', async () => {
     mockProcessAlertTriggers.mockRejectedValueOnce(new Error('Unexpected failure'));
 
-    const { POST } = await import('@/app/api/cron/alerts/check/route');
+    const { GET } = await import('@/app/api/cron/alerts/check/route');
     const request = makeRequest('Bearer test-cron-secret-123');
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     // Cron 자체는 살아있어야 함
@@ -122,10 +122,10 @@ describe('POST /api/cron/alerts/check (AC1)', () => {
   it('오류 발생 시 응답 data에 errors 필드가 포함된다', async () => {
     mockProcessAlertTriggers.mockRejectedValueOnce(new Error('Service unavailable'));
 
-    const { POST } = await import('@/app/api/cron/alerts/check/route');
+    const { GET } = await import('@/app/api/cron/alerts/check/route');
     const request = makeRequest('Bearer test-cron-secret-123');
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(body.data).toBeDefined();

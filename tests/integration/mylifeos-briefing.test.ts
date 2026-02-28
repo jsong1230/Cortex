@@ -107,9 +107,9 @@ const mockUserSettings = [
   { id: 'singleton', mylifeos_enabled: true },
 ];
 
-// ─── POST /api/context/sync 테스트 ──────────────────────────────────────────
+// ─── GET /api/context/sync 테스트 ──────────────────────────────────────────
 
-describe('POST /api/context/sync — F-18 동기화', () => {
+describe('GET /api/context/sync — F-18 동기화', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -144,12 +144,12 @@ describe('POST /api/context/sync — F-18 동기화', () => {
   });
 
   it('F18-I-1: 인증 없이 요청하면 401을 반환한다', async () => {
-    const { POST } = await import('@/app/api/context/sync/route');
+    const { GET } = await import('@/app/api/context/sync/route');
     const request = new NextRequest('http://localhost/api/context/sync', {
       method: 'POST',
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -157,13 +157,13 @@ describe('POST /api/context/sync — F-18 동기화', () => {
   });
 
   it('F18-I-2: 올바른 CRON_SECRET으로 동기화가 실행된다', async () => {
-    const { POST } = await import('@/app/api/context/sync/route');
+    const { GET } = await import('@/app/api/context/sync/route');
     const request = new NextRequest('http://localhost/api/context/sync', {
       method: 'POST',
       headers: { Authorization: 'Bearer test-cron-secret-123' },
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -171,13 +171,13 @@ describe('POST /api/context/sync — F-18 동기화', () => {
   });
 
   it('F18-I-3: 응답에 { success, data: { synced, expired } } 형태가 포함된다', async () => {
-    const { POST } = await import('@/app/api/context/sync/route');
+    const { GET } = await import('@/app/api/context/sync/route');
     const request = new NextRequest('http://localhost/api/context/sync', {
       method: 'POST',
       headers: { Authorization: 'Bearer test-cron-secret-123' },
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(body.success).toBe(true);
@@ -188,13 +188,13 @@ describe('POST /api/context/sync — F-18 동기화', () => {
   it('F18-I-4: mylifeos_enabled=false이면 동기화를 건너뛴다', async () => {
     tableDataMap['cortex_settings'] = [{ id: 'singleton', mylifeos_enabled: false }];
 
-    const { POST } = await import('@/app/api/context/sync/route');
+    const { GET } = await import('@/app/api/context/sync/route');
     const request = new NextRequest('http://localhost/api/context/sync', {
       method: 'POST',
       headers: { Authorization: 'Bearer test-cron-secret-123' },
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(200);

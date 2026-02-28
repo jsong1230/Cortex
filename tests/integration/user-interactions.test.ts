@@ -366,13 +366,13 @@ describe('스킵 자동 기록 — send-briefing Cron (R-08)', () => {
       };
     });
 
-    const { POST } = await import('@/app/api/cron/send-briefing/route');
+    const { GET } = await import('@/app/api/cron/send-briefing/route');
     const request = new NextRequest('http://localhost/api/cron/send-briefing', {
       method: 'POST',
       headers: { Authorization: `Bearer ${MOCK_CRON_SECRET}` },
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     // 아이템이 없으므로 200 OK (스킵 안내) 또는 200 OK (정상 처리)
     expect(response.status).not.toBe(500);
 

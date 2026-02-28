@@ -33,7 +33,7 @@ async function isMyLifeOsEnabled(): Promise<boolean> {
   }
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   // 1. CRON_SECRET 인증
   if (!verifyCronSecret(request)) {
     return NextResponse.json(

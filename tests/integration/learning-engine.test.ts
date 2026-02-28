@@ -208,13 +208,13 @@ describe('AC5: archive-topics cron — 저점수 토픽 자동 보관', () => {
   });
 
   it('AC5: 200 OK와 archived_count를 반환한다', async () => {
-    const { POST } = await import('@/app/api/cron/archive-topics/route');
+    const { GET } = await import('@/app/api/cron/archive-topics/route');
     const request = new NextRequest('http://localhost/api/cron/archive-topics', {
       method: 'POST',
       headers: { authorization: 'Bearer test-secret' },
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -223,13 +223,13 @@ describe('AC5: archive-topics cron — 저점수 토픽 자동 보관', () => {
   });
 
   it('AC5: CRON_SECRET 미매치 시 401을 반환한다', async () => {
-    const { POST } = await import('@/app/api/cron/archive-topics/route');
+    const { GET } = await import('@/app/api/cron/archive-topics/route');
     const request = new NextRequest('http://localhost/api/cron/archive-topics', {
       method: 'POST',
       headers: { authorization: 'Bearer wrong-secret' },
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     expect(response.status).toBe(401);
   });
 });

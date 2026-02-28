@@ -22,7 +22,7 @@ function verifyCronSecret(request: NextRequest): boolean {
 
 // ─── POST /api/cron/snapshot-scores ─────────────────────────────────────────
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   // 1. Cron 시크릿 검증
   if (!verifyCronSecret(request)) {
     return NextResponse.json(

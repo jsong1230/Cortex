@@ -69,7 +69,7 @@ function isSaturday(): boolean {
   return kstDate.getDay() === 6;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   // ─── 1. 인증 ────────────────────────────────────────────────────────────
   if (!verifyCronSecret(request)) {
     return NextResponse.json(

@@ -98,7 +98,7 @@ vi.mock('@/lib/collectors/toronto-collector', () => ({
   })),
 }));
 
-import { POST } from '@/app/api/cron/collect/route';
+import { GET } from '@/app/api/cron/collect/route';
 
 // 인증 헬퍼
 function makeAuthorizedRequest(): NextRequest {
@@ -110,7 +110,7 @@ function makeAuthorizedRequest(): NextRequest {
   });
 }
 
-describe('POST /api/cron/collect', () => {
+describe('GET /api/cron/collect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.CRON_SECRET = 'test-cron-secret';
@@ -128,7 +128,7 @@ describe('POST /api/cron/collect', () => {
       method: 'POST',
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -145,7 +145,7 @@ describe('POST /api/cron/collect', () => {
       },
     });
 
-    const response = await POST(request);
+    const response = await GET(request);
 
     expect(response.status).toBe(401);
   });
@@ -154,7 +154,7 @@ describe('POST /api/cron/collect', () => {
   it('I-01: 올바른 Cron Secret으로 요청 시 200과 success: true를 반환한다', async () => {
     const request = makeAuthorizedRequest();
 
-    const response = await POST(request);
+    const response = await GET(request);
     const body = await response.json();
 
     expect(response.status).toBe(200);
