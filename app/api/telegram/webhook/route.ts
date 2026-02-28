@@ -61,13 +61,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (err) {
     // 비즈니스 로직 오류도 200으로 반환 — 텔레그램 재전송 방지
     const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack?.slice(0, 300) : undefined;
     // eslint-disable-next-line no-console
     console.error(JSON.stringify({
       event: 'cortex_webhook_error',
       error: errMsg,
+      stack: errStack,
       update_id: update.update_id,
       command: update.message?.text,
     }));
-    return NextResponse.json({ success: true });
+    // 디버그용: 에러 정보를 응답에 포함 (프로덕션 안정화 후 제거)
+    return NextResponse.json({ success: false, debug_error: errMsg });
   }
 }
