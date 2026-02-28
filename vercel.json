@@ -16,7 +16,8 @@
     },
     {
       "path": "/api/cron/alerts/check",
-      "schedule": "0 * * * *"
+      "schedule": "0 2 * * *",
+      "comment": "F-15: 긴급 알림 체크 (Hobby 플랜 제한으로 일 1회, UTC 02:00 = KST 11:00)"
     },
     {
       "path": "/api/cron/archive-topics",
