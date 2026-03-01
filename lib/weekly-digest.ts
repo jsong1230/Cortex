@@ -141,11 +141,11 @@ export async function generateWeeklyDigest(
   // KST 기준 이번 주 월요일 00:00 계산
   const now = new Date();
   const kstDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
-  const dayOfWeek = kstDate.getDay(); // 0:일, 6:토
+  const kstMidnight = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const dayOfWeek = new Date(`${kstDateStr}T12:00:00+09:00`).getUTCDay(); // 0:일, 6:토
   // 월요일(1)을 기준으로 이번 주 시작일 계산
   const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekStart = new Date(kstDate.getTime() - daysFromMonday * 24 * 60 * 60 * 1000);
+  const weekStart = new Date(kstMidnight.getTime() - daysFromMonday * 24 * 60 * 60 * 1000);
   const weekStartIso = weekStart.toISOString();
 
   // ─ 이번 주 좋아요 Top 3 조회 ───────────────────────────────────────────────

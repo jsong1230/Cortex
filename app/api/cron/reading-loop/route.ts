@@ -27,11 +27,11 @@ function verifyCronSecret(request: NextRequest): boolean {
 function isLastDayOfMonth(): boolean {
   const now = new Date();
   const kstDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const kstNoon = new Date(`${kstDateStr}T12:00:00+09:00`);
 
   // 다음 날이 1일이면 오늘이 마지막 날
-  const tomorrow = new Date(kstDate.getTime() + 24 * 60 * 60 * 1000);
-  return tomorrow.getDate() === 1;
+  const tomorrow = new Date(kstNoon.getTime() + 24 * 60 * 60 * 1000);
+  return tomorrow.getUTCDate() === 1;
 }
 
 /**

@@ -92,10 +92,10 @@ async function callClaude(prompt: string): Promise<string> {
 function getWeekStartIso(): string {
   const now = new Date();
   const kstDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
-  const dayOfWeek = kstDate.getDay(); // 0:일, 6:토
+  const kstMidnight = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const dayOfWeek = new Date(`${kstDateStr}T12:00:00+09:00`).getUTCDay(); // 0:일, 6:토
   const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekStart = new Date(kstDate.getTime() - daysFromMonday * 24 * 60 * 60 * 1000);
+  const weekStart = new Date(kstMidnight.getTime() - daysFromMonday * 24 * 60 * 60 * 1000);
   return weekStart.toISOString();
 }
 

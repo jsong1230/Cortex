@@ -141,10 +141,10 @@ export function formatBriefingMessage(items: BriefingItem[]): string {
   // KST 날짜 + 요일 계산
   const now = new Date();
   const kstDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }); // 'YYYY-MM-DD'
-  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const kstNoon = new Date(`${kstDateStr}T12:00:00+09:00`);
   const yearMonth = kstDateStr.slice(0, 7).replace('-', '.'); // 'YYYY.MM'
-  const day = kstDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(8, 10); // 'DD'
-  const dayName = DAY_NAMES_KO[kstDate.getDay()];
+  const day = kstDateStr.slice(8, 10); // 'DD'
+  const dayName = DAY_NAMES_KO[kstNoon.getUTCDay()];
 
   const lines: string[] = [];
   lines.push(`🌅 ${yearMonth}.${day} ${dayName} 모닝 브리핑`);
@@ -223,10 +223,10 @@ export function formatBriefingMessage(items: BriefingItem[]): string {
 function buildDateHeader(label: string): string {
   const now = new Date();
   const kstDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }); // 'YYYY-MM-DD'
-  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
+  const kstNoon = new Date(`${kstDateStr}T12:00:00+09:00`);
   const yearMonth = kstDateStr.slice(0, 7).replace('-', '.'); // 'YYYY.MM'
   const day = kstDateStr.slice(8, 10); // 'DD'
-  const dayName = DAY_NAMES_KO[kstDate.getDay()];
+  const dayName = DAY_NAMES_KO[kstNoon.getUTCDay()];
   return `🌅 ${yearMonth}.${day} ${dayName} ${label}`;
 }
 
@@ -383,8 +383,8 @@ export function createInlineKeyboard(webUrl: string): InlineButton[][] {
 export function isWeekend(date: Date = new Date()): boolean {
   // KST = UTC+9, en-CA locale은 YYYY-MM-DD 형식을 보장
   const kstDateStr = date.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
-  const dayOfWeek = kstDate.getDay(); // 0: 일, 6: 토
+  const kstNoon = new Date(`${kstDateStr}T12:00:00+09:00`);
+  const dayOfWeek = kstNoon.getUTCDay(); // 0: 일, 6: 토
   return dayOfWeek === 0 || dayOfWeek === 6;
 }
 

@@ -65,8 +65,8 @@ function getTodayKstDate(): string {
  */
 function isSaturday(): boolean {
   const kstDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
-  const kstDate = new Date(`${kstDateStr}T00:00:00+09:00`);
-  return kstDate.getDay() === 6;
+  const kstNoon = new Date(`${kstDateStr}T12:00:00+09:00`);
+  return kstNoon.getUTCDay() === 6;
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -360,7 +360,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           const weekStart = new Date();
           const kstStr = weekStart.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
           const kst = new Date(`${kstStr}T00:00:00+09:00`);
-          const daysFromMonday = kst.getDay() === 0 ? 6 : kst.getDay() - 1;
+          const kstDow = new Date(`${kstStr}T12:00:00+09:00`).getUTCDay();
+          const daysFromMonday = kstDow === 0 ? 6 : kstDow - 1;
           const monday = new Date(kst.getTime() - daysFromMonday * 24 * 60 * 60 * 1000);
 
           const { data: likedRows } = await supabase
