@@ -106,23 +106,57 @@ export function calculateContentScore(
 }
 
 /**
+ * published_at 기반 최신성 점수 계산
+ * 지수 감쇠: score = exp(-λ * hoursElapsed), λ = 0.05
+ * - 0시간: 1.0, 12시간: ~0.55, 24시간: ~0.30, 48시간: ~0.09
+ */
+export function calculateRecencyScore(publishedAt: string | null | undefined): number {
+  if (!publishedAt) return 0.5; // 발행 시각 없으면 중간값
+
+  const publishedMs = new Date(publishedAt).getTime();
+  if (isNaN(publishedMs)) return 0.5;
+
+  const hoursElapsed = (Date.now() - publishedMs) / (1000 * 60 * 60);
+  if (hoursElapsed < 0) return 1.0; // 미래 날짜 방어 처리
+
+  const LAMBDA = 0.05;
+  return Math.exp(-LAMBDA * hoursElapsed);
+}
+
+/**
  * TECH 채널 최종 점수 계산 (AC6)
- * Phase 2 공식: 관심도 x 0.6 + 컨텍스트 x 0.3 + 최신성 x 0.1
+ * 공식: 관심도 x 0.6 + 컨텍스트 x 0.3 + 최신성 x 0.1
  *
- * Phase 1: Claude가 반환한 scoreInitial을 그대로 사용
- * Phase 2: interest, context, recency 모두 제공 시 가중 합산 적용
+ * 제공된 파라미터만으로 가중 합산. 없는 값은 scoreInitial로 대체.
+ * - 셋 다 없으면: scoreInitial pass-through (Phase 1)
+ * - 일부만 있으면: 있는 값 가중치 비율로 정규화하여 계산
  */
 export function calculateTechScore(
   scoreInitial: number,
-  interestScore?: number,  // Phase 2: interest_profile 매칭 점수
-  contextScore?: number,   // Phase 3: keyword_contexts 매칭 점수
-  recencyScore?: number,   // published_at 기반 최신성 점수
+  interestScore?: number,  // interest_profile 매칭 점수
+  contextScore?: number,   // keyword_contexts 매칭 점수
+  recencyScore?: number,   // calculateRecencyScore() 결과
 ): number {
-  // Phase 2 활성화: 세 값이 모두 제공된 경우
-  if (interestScore !== undefined && contextScore !== undefined && recencyScore !== undefined) {
-    return interestScore * 0.6 + contextScore * 0.3 + recencyScore * 0.1;
-  }
+  const hasInterest = interestScore !== undefined;
+  const hasContext = contextScore !== undefined;
+  const hasRecency = recencyScore !== undefined;
 
-  // Phase 1: Claude 직접 반환 점수 사용 (pass-through)
-  return scoreInitial;
+  // 아무것도 없으면 Phase 1 pass-through
+  if (!hasInterest && !hasContext && !hasRecency) return scoreInitial;
+
+  // 있는 값만으로 가중 합산 (가중치 정규화)
+  const WEIGHTS = { interest: 0.6, context: 0.3, recency: 0.1 } as const;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  if (hasInterest) { weightedSum += interestScore! * WEIGHTS.interest; totalWeight += WEIGHTS.interest; }
+  if (hasContext)  { weightedSum += contextScore!  * WEIGHTS.context;  totalWeight += WEIGHTS.context; }
+  if (hasRecency)  { weightedSum += recencyScore!  * WEIGHTS.recency;  totalWeight += WEIGHTS.recency; }
+
+  // scoreInitial로 나머지 가중치 보완 (항상 0~1 범위 유지)
+  const remainingWeight = 1 - totalWeight;
+  weightedSum += scoreInitial * remainingWeight;
+
+  return weightedSum;
 }

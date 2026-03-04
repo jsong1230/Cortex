@@ -12,16 +12,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
-      <h1
-        style={{
-          fontSize: '24px',
-          fontWeight: 700,
-          letterSpacing: '-0.02em',
-          color: '#1A1A1A',
-          fontFamily: "'Noto Serif KR', Georgia, serif",
-          marginBottom: '16px',
-        }}
-      >
+      <h1 className="mb-4 font-serif text-2xl font-bold tracking-tight text-[#1A1A1A]">
         오늘의 브리핑
       </h1>
 

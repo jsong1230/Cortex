@@ -123,11 +123,12 @@ async function getTodayBriefing(): Promise<BriefingRecord | null> {
   return data[0] as BriefingRecord;
 }
 
-// ─── user_interactions UPSERT 헬퍼 ──────────────────────────────────────────
+// ─── user_interactions INSERT 헬퍼 ──────────────────────────────────────────
 
 /**
  * 텔레그램 반응을 user_interactions에 기록한다.
- * 메모 외 반응은 UPSERT로 중복을 방지한다.
+ * 메모 외 반응은 DB partial unique index(idx_interactions_content_type_unique)를 활용해
+ * ON CONFLICT DO NOTHING으로 원자적 중복 방지한다.
  * 메모는 항상 새 레코드로 INSERT한다.
  */
 async function insertInteraction(
@@ -144,21 +145,18 @@ async function insertInteraction(
     source: 'telegram_bot',
   };
 
-  // unique constraint가 없을 수 있으므로 INSERT로 통일
-  // 중복 방지는 INSERT 전 기존 레코드 확인으로 처리
-  if (interaction !== '메모') {
-    const { data: existing } = await supabase
+  if (interaction === '메모') {
+    // 메모는 중복 허용 — 항상 INSERT
+    const { error } = await supabase.from('user_interactions').insert(data);
+    if (error) throw new Error(`interaction insert 실패: ${error.message}`);
+  } else {
+    // 메모 외 반응: partial unique index 기반 ON CONFLICT DO NOTHING
+    // (004_interaction_unique_constraint.sql: content_id + interaction WHERE interaction != '메모')
+    const { error } = await supabase
       .from('user_interactions')
-      .select('id')
-      .eq('content_id', contentId)
-      .eq('interaction', interaction)
-      .limit(1);
-
-    if (existing && existing.length > 0) return; // 이미 존재 → 스킵
+      .upsert(data, { onConflict: 'content_id,interaction', ignoreDuplicates: true });
+    if (error) throw new Error(`interaction upsert 실패: ${error.message}`);
   }
-
-  const { error } = await supabase.from('user_interactions').insert(data);
-  if (error) throw new Error(`interaction insert 실패: ${error.message}`);
 }
 
 // ─── handleGood ─────────────────────────────────────────────────────────────
@@ -236,7 +234,7 @@ export async function handleSave(n: number): Promise<string> {
  */
 export function handleMore(): string {
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://cortex-briefing.vercel.app';
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cortex-briefing.vercel.app';
   const todayKST = formatDate(toKST(new Date()));
   return `오늘 브리핑 웹 상세 페이지:\n${appUrl}/briefings/${todayKST}`;
 }

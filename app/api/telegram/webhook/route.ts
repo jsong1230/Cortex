@@ -70,7 +70,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       update_id: update.update_id,
       command: update.message?.text,
     }));
-    // 디버그용: 에러 정보를 응답에 포함 (프로덕션 안정화 후 제거)
-    return NextResponse.json({ success: false, debug_error: errMsg });
+    // 에러 발생 시에도 200 반환 — 텔레그램 재전송 방지
+    return NextResponse.json({ success: true });
   }
 }

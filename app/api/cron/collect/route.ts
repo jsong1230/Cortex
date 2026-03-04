@@ -9,6 +9,8 @@ import { TechCollector } from '@/lib/collectors/tech-collector';
 import { WorldCollector } from '@/lib/collectors/world-collector';
 import { CultureCollector } from '@/lib/collectors/culture-collector';
 import { TorontoCollector } from '@/lib/collectors/toronto-collector';
+import { assertRequiredEnv } from '@/lib/utils/env';
+import { log } from '@/lib/utils/logger';
 
 /** content_items 테이블에 upsert할 레코드 타입 */
 interface ContentItemRecord {
@@ -50,6 +52,19 @@ interface CollectResult {
 function verifyCronSecret(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization');
   return authHeader === `Bearer ${process.env.CRON_SECRET}`;
+}
+
+/**
+ * Promise에 타임아웃을 적용한다 (Vercel 300초 제한 대응 — I-14)
+ * @param promise 타임아웃을 적용할 Promise
+ * @param ms 타임아웃 밀리초
+ * @param label 에러 메시지에 포함될 채널명
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`${label} 수집 타임아웃 (${ms / 1000}초 초과)`)), ms),
+  );
+  return Promise.race([promise, timeout]);
 }
 
 /**
@@ -177,6 +192,34 @@ async function updateSummaries(updates: SummaryUpdateRecord[]): Promise<number> 
 }
 
 /**
+ * Claude API 사용량을 api_usage_log 테이블에 저장 (I-15)
+ * 실패해도 수집 파이프라인에 영향 없도록 독립적으로 처리
+ */
+async function saveApiUsage(params: {
+  event: string;
+  totalTokens: number;
+  itemCount: number;
+  durationMs: number;
+}): Promise<void> {
+  try {
+    const supabase = createServerClient();
+    const estimatedCostUsd = (params.totalTokens / 1_000_000) * 9;
+    const { error } = await supabase.from('api_usage_log').insert({
+      event: params.event,
+      total_tokens: params.totalTokens,
+      estimated_cost_usd: estimatedCostUsd,
+      item_count: params.itemCount,
+      duration_ms: params.durationMs,
+    });
+    if (error) {
+      log({ event: 'api_usage_log_insert_failed', level: 'warn', data: { error: error.message } });
+    }
+  } catch (err) {
+    log({ event: 'api_usage_log_insert_exception', level: 'warn', error: err });
+  }
+}
+
+/**
  * CollectedItem을 SummarizeInput으로 변환
  */
 function toSummarizeInput(item: CollectedItem & { id: string }): SummarizeInput {
@@ -198,6 +241,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  assertRequiredEnv();
+
   const result: CollectResult = {
     collected: { tech: 0, world: 0, culture: 0, canada: 0 },
     summarized: 0,
@@ -207,12 +252,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   };
 
   // 1. 채널별 수집기 병렬 실행 (채널별 독립 에러 격리)
-  // 수집기 생성과 실행을 각 Promise 내에서 처리 (생성 실패 시 해당 채널만 rejected)
+  // withTimeout으로 채널당 60초 제한 — Vercel Pro 300초 총 제한 내 안전 마진 확보 (I-14)
+  const COLLECTOR_TIMEOUT_MS = 60_000;
   const [techResult, worldResult, cultureResult, canadaResult] = await Promise.allSettled([
-    (async () => new TechCollector().collect())(),
-    (async () => new WorldCollector().collect())(),
-    (async () => new CultureCollector().collect())(),
-    (async () => new TorontoCollector().collect())(),
+    withTimeout((async () => new TechCollector().collect())(), COLLECTOR_TIMEOUT_MS, 'TECH'),
+    withTimeout((async () => new WorldCollector().collect())(), COLLECTOR_TIMEOUT_MS, 'WORLD'),
+    withTimeout((async () => new CultureCollector().collect())(), COLLECTOR_TIMEOUT_MS, 'CULTURE'),
+    withTimeout((async () => new TorontoCollector().collect())(), COLLECTOR_TIMEOUT_MS, 'CANADA'),
   ]);
 
   const allCollectedItems: CollectedItem[] = [];
@@ -314,6 +360,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // 5. Claude API 배치 요약 + 스코어링 (F-05 핵심)
   if (unsummarizedItems.length > 0) {
+    const summarizeStartTime = Date.now();
     try {
       const summaryResults = await summarizeAndScore(unsummarizedItems);
 
@@ -334,7 +381,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
       const successCount = summaryResults.filter((r) => r.tokensUsed > 0).length;
       const failCount = summaryResults.filter((r) => r.tokensUsed === 0).length;
+      const totalTokensUsed = summaryResults.reduce((sum, r) => sum + r.tokensUsed, 0);
       result.summarized = successCount;
+
+      // I-15: 토큰 사용량 DB 기록 (비동기, 실패해도 파이프라인 계속)
+      void saveApiUsage({
+        event: 'summarize',
+        totalTokens: totalTokensUsed,
+        itemCount: summaryResults.length,
+        durationMs: Date.now() - summarizeStartTime,
+      });
 
       if (failCount > 0) {
         result.errors.push(`SUMMARIZE_PARTIAL_FAIL: ${failCount}개 폴백 처리됨`);

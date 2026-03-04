@@ -34,7 +34,8 @@ import {
   calculateContextScore,
   type KeywordContext,
 } from '@/lib/mylifeos';
-import { calculateTechScore } from '@/lib/scoring';
+import { calculateTechScore, calculateRecencyScore } from '@/lib/scoring';
+import { assertRequiredEnv } from '@/lib/utils/env';
 
 // 웹 URL (인라인 버튼에 사용)
 const WEB_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cortex-briefing.vercel.app';
@@ -78,6 +79,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  assertRequiredEnv();
+
   const todayKst = getTodayKstDate();
   const todayStartIso = getTodayKstStartIso();
 
@@ -118,7 +121,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const { data: items, error: itemsError } = await supabase
       .from('content_items')
-      .select('id, channel, source, source_url, title, summary_ai, score_initial, tags')
+      .select('id, channel, source, source_url, title, summary_ai, score_initial, tags, published_at')
       .gte('collected_at', todayStartIso)
       .order('score_initial', { ascending: false });
 
@@ -159,6 +162,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       summary_ai: row.summary_ai as string,
       score_initial: (row.score_initial as number) ?? 0.5,
       tags: (row.tags as string[]) ?? [],
+      published_at: (row.published_at as string | null) ?? null,
     }));
 
     // ─── 3. 아이템이 없으면 스킵 ────────────────────────────────────────
@@ -228,8 +232,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ? interestScores.reduce((sum, s) => sum + s, 0) / interestScores.length
         : 0.5;
 
-      // recency 점수: score_initial 자체를 recency 대리값으로 사용
-      const recencyScore = item.score_initial;
+      // recency 점수: published_at 기반 지수 감쇠 (λ=0.05)
+      const recencyScore = calculateRecencyScore(item.published_at);
 
       const newScore = calculateTechScore(
         item.score_initial,

@@ -4,6 +4,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { Channel } from './collectors/types';
+import { log } from './utils/logger';
 
 // Claude API 재시도 설정
 const MAX_RETRIES = 1;
@@ -269,11 +270,9 @@ function applyFallback(item: SummarizeInput): SummarizeResult {
  * 토큰/비용 사용량 구조화 로깅
  */
 function logUsage(stats: SummarizeStats): void {
-  // Vercel Logs에서 검색 가능한 구조화 로깅
-  // eslint-disable-next-line no-console
-  console.info(
-    JSON.stringify({
-      event: 'cortex_summarize_complete',
+  log({
+    event: 'cortex_summarize_complete',
+    data: {
       totalItems: stats.totalItems,
       summarized: stats.summarized,
       cached: stats.cached,
@@ -281,9 +280,8 @@ function logUsage(stats: SummarizeStats): void {
       totalTokensUsed: stats.totalTokensUsed,
       estimatedCostUsd: (stats.totalTokensUsed / 1_000_000) * 9,
       durationMs: stats.durationMs,
-      timestamp: new Date().toISOString(),
-    }),
-  );
+    },
+  });
 }
 
 /**

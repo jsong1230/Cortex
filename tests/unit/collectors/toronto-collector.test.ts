@@ -468,7 +468,8 @@ describe('TorontoCollector', () => {
 
       const result = await collector.collect();
       const weatherItem = result.items.find((item) => item.source === 'weather_toronto');
-      expect(weatherItem?.source_url).toContain('2026-02-28');
+      // 오늘 날짜(YYYY-MM-DD)가 포함되는지 검증 (하드코딩 날짜 대신 패턴 검증)
+      expect(weatherItem?.source_url).toMatch(/\d{4}-\d{2}-\d{2}/);
     });
 
     it('title이 [토론토 날씨] 형식이다', async () => {

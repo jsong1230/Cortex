@@ -335,12 +335,13 @@ describe('POST /api/telegram/webhook — callback_query 처리 (I-07-04)', () =>
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(mockFrom).toHaveBeenCalledWith('user_interactions');
-    // F-11: SELECT-then-INSERT로 중복 방지
-    expect(mockInsert).toHaveBeenCalledWith(
+    // F-11: ON CONFLICT DO NOTHING upsert로 중복 방지
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         interaction: '좋아요',
         source: 'telegram_bot',
       }),
+      expect.objectContaining({ ignoreDuplicates: true }),
     );
   });
 
@@ -351,12 +352,13 @@ describe('POST /api/telegram/webhook — callback_query 처리 (I-07-04)', () =>
     const response = await POST(request);
 
     expect(response.status).toBe(200);
-    // F-11: SELECT-then-INSERT로 중복 방지
-    expect(mockInsert).toHaveBeenCalledWith(
+    // F-11: ON CONFLICT DO NOTHING upsert로 중복 방지
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         interaction: '싫어요',
         source: 'telegram_bot',
       }),
+      expect.objectContaining({ ignoreDuplicates: true }),
     );
   });
 
@@ -367,12 +369,13 @@ describe('POST /api/telegram/webhook — callback_query 처리 (I-07-04)', () =>
     const response = await POST(request);
 
     expect(response.status).toBe(200);
-    // F-11: SELECT-then-INSERT로 중복 방지
-    expect(mockInsert).toHaveBeenCalledWith(
+    // F-11: ON CONFLICT DO NOTHING upsert로 중복 방지
+    expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         interaction: '저장',
         source: 'telegram_bot',
       }),
+      expect.objectContaining({ ignoreDuplicates: true }),
     );
   });
 

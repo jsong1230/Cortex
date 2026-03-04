@@ -296,12 +296,12 @@ describe('handleSave', () => {
 describe('handleMore', () => {
   beforeEach(() => {
     vi.setSystemTime(new Date('2026-02-28T07:00:00+09:00'));
-    delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
   });
 
   it('U-07-05-1: 오늘 날짜 기반 웹 URL을 포함한 텍스트를 반환한다', () => {
@@ -314,8 +314,8 @@ describe('handleMore', () => {
     expect(result).toMatch(/\d{4}-\d{2}-\d{2}/);
   });
 
-  it('U-07-05-3: NEXT_PUBLIC_APP_URL 환경변수가 있으면 해당 URL을 사용한다', () => {
-    process.env.NEXT_PUBLIC_APP_URL = 'https://my-cortex.com';
+  it('U-07-05-3: NEXT_PUBLIC_SITE_URL 환경변수가 있으면 해당 URL을 사용한다', () => {
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://my-cortex.com';
     const result = handleMore();
     expect(result).toContain('https://my-cortex.com');
   });

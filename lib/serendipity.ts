@@ -51,16 +51,16 @@ export function calculateInverseWeight(
   interestProfile: Map<string, number>,
 ): number {
   if (tags.length === 0) {
-    // 태그 없음 → 관심도 알 수 없음 → 최대 기본 역가중치
-    return 1.0 + 0.2;
+    // 태그 없음 → 관심도 알 수 없음 → 최대 역가중치
+    return 1.0;
   }
 
   // 각 태그의 관심도 점수 평균 계산 (프로필에 없으면 0)
   const scores = tags.map((tag) => interestProfile.get(tag) ?? 0);
   const averageInterestScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
 
-  // 역가중치 = 1.0 - 평균관심도 + 0.2(기본 랜덤성)
-  return 1.0 - averageInterestScore + 0.2;
+  // 역가중치 = 1.0 - 평균관심도 (0~1 범위, 최소 0.05로 기본 랜덤성 보장)
+  return Math.max(0.05, 1.0 - averageInterestScore);
 }
 
 // ─── buildSerendipityPool ────────────────────────────────────────────────────

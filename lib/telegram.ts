@@ -87,6 +87,8 @@ export interface BriefingItem {
   why_important?: string;
   /** F-18: My Life OS 컨텍스트 매칭 이유 (있을 때만 표시) */
   reason?: string;
+  /** 원문 발행 시각 (recencyScore 계산용) */
+  published_at?: string | null;
 }
 
 /** sendBriefing 결과 */
