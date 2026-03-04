@@ -8,14 +8,17 @@
 
 ## 현황 진단 요약
 
-| 영역 | 평가 | 주요 이슈 |
+> 최종 업데이트: 2026-03-05 — I-01~I-15 전체 완료, DB 마이그레이션 Supabase 적용 완료
+
+| 영역 | 평가 | 조치 내용 |
 |------|------|-----------|
-| 보안 | ⚠️ | webhook 디버그 정보 노출 |
-| 안정성 | ⚠️ | insertInteraction race condition 가능성 |
-| 코드 품질 | 🟡 | 하드코딩된 URL, recencyScore 구현 부정확 |
-| 테스트 | 🟡 | race condition / 타임존 경계값 케이스 미비 |
-| DB 성능 | 🟡 | user_interactions 복합 인덱스 누락 |
-| 문서 | ✅ | 상세한 설계 문서 보유 |
+| 보안 | ✅ | I-01: webhook debug_error 제거 완료 |
+| 안정성 | ✅ | I-02: UPSERT + DB UNIQUE constraint로 race condition 해결 |
+| 코드 품질 | ✅ | I-04~I-08: URL 통합, recencyScore, SDK 버전, Tailwind, 가중치 정규화 |
+| 테스트 | ✅ | I-09~I-10: race condition / 타임존 경계값 테스트 추가. 989/989 통과 |
+| DB 성능 | ✅ | I-11: 복합 인덱스 4개 + I-15: api_usage_log 인덱스 2개 Supabase 적용 완료 |
+| 관측성 | ✅ | I-13~I-15: 표준 로거, cron 타임아웃, API 비용 추적 |
+| 문서 | ✅ | improvement-plan.md 작성 및 전체 완료 반영 |
 
 ---
 
