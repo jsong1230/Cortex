@@ -39,13 +39,14 @@ vi.mock('@/lib/supabase/server', () => ({
         return buildSelectChain(mockBriefingRows, mockBriefingError);
       }
       // cortex_settings
+      const settingsSingle = vi.fn().mockImplementation(async () => ({
+        data: mockSettingsRow,
+        error: mockSettingsError,
+      }));
+      const settingsChain = { single: settingsSingle, eq: vi.fn() };
+      settingsChain.eq = vi.fn().mockReturnValue(settingsChain);
       return {
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockImplementation(async () => ({
-            data: mockSettingsRow,
-            error: mockSettingsError,
-          })),
-        }),
+        select: vi.fn().mockReturnValue(settingsChain),
         upsert: mockUpsert,
       };
     }),

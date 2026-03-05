@@ -58,15 +58,19 @@ const SINGLETON_SETTINGS_ID = 'singleton';
 
 /**
  * cortex_settings에서 채널 ON/OFF 설정을 읽어온다.
+ * userId가 있으면 해당 유저의 설정, 없으면 싱글톤 행을 읽는다.
  * 행이 없거나 DB 오류 시 기본값(모두 ON)을 반환한다.
  */
-export async function getChannelSettings(): Promise<ChannelSettings> {
+export async function getChannelSettings(userId?: string | null): Promise<ChannelSettings> {
   try {
     const supabase = createServerClient();
-    const { data, error } = await supabase
-      .from('cortex_settings')
-      .select('channel_settings')
-      .single();
+    let query = supabase.from('cortex_settings').select('channel_settings');
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.eq('id', SINGLETON_SETTINGS_ID);
+    }
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return { ...DEFAULT_CHANNEL_SETTINGS };
@@ -85,23 +89,22 @@ export async function getChannelSettings(): Promise<ChannelSettings> {
 
 /**
  * cortex_settings에 채널 ON/OFF 설정을 저장한다.
- * 싱글톤 행 UPSERT 방식으로 처리한다.
+ * userId가 있으면 user_id 기준 UPSERT, 없으면 싱글톤 행 UPSERT.
  */
 export async function updateChannelSettings(
   settings: ChannelSettings,
+  userId?: string | null,
 ): Promise<UpdateResult> {
   try {
     const supabase = createServerClient();
+    const upsertData = userId
+      ? { id: userId, user_id: userId, channel_settings: settings, updated_at: new Date().toISOString() }
+      : { id: SINGLETON_SETTINGS_ID, channel_settings: settings, updated_at: new Date().toISOString() };
+    const conflictKey = userId ? 'user_id' : 'id';
+
     const error = await supabase
       .from('cortex_settings')
-      .upsert(
-        {
-          id: SINGLETON_SETTINGS_ID,
-          channel_settings: settings,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' },
-      );
+      .upsert(upsertData, { onConflict: conflictKey });
 
     if (error.error) {
       return { success: false, error: error.error.message };
@@ -118,15 +121,18 @@ export async function updateChannelSettings(
 
 /**
  * 현재 뮤트 상태를 확인한다.
- * mute_until이 미래 시각이면 뮤트 상태이다.
+ * userId가 있으면 해당 유저의 설정, 없으면 싱글톤 행을 읽는다.
  */
-export async function getMuteStatus(): Promise<MuteStatus> {
+export async function getMuteStatus(userId?: string | null): Promise<MuteStatus> {
   try {
     const supabase = createServerClient();
-    const { data, error } = await supabase
-      .from('cortex_settings')
-      .select('mute_until')
-      .single();
+    let query = supabase.from('cortex_settings').select('mute_until');
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.eq('id', SINGLETON_SETTINGS_ID);
+    }
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return { isMuted: false, muteUntil: null };
@@ -150,25 +156,23 @@ export async function getMuteStatus(): Promise<MuteStatus> {
 /**
  * N일간 뮤트를 설정한다.
  * N <= 0이면 뮤트를 해제한다 (mute_until = null).
- * DB 오류 시 에러를 throw한다.
+ * userId가 있으면 해당 유저 설정, 없으면 싱글톤 행을 업데이트한다.
  */
-export async function setMute(days: number): Promise<void> {
+export async function setMute(days: number, userId?: string | null): Promise<void> {
   const muteUntil =
     days > 0
       ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
   const supabase = createServerClient();
+  const upsertData = userId
+    ? { id: userId, user_id: userId, mute_until: muteUntil, updated_at: new Date().toISOString() }
+    : { id: SINGLETON_SETTINGS_ID, mute_until: muteUntil, updated_at: new Date().toISOString() };
+  const conflictKey = userId ? 'user_id' : 'id';
+
   const { error } = await supabase
     .from('cortex_settings')
-    .upsert(
-      {
-        id: SINGLETON_SETTINGS_ID,
-        mute_until: muteUntil,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' },
-    );
+    .upsert(upsertData, { onConflict: conflictKey });
 
   if (error) {
     throw new Error(`뮤트 설정 실패: ${error.message}`);
@@ -179,18 +183,19 @@ export async function setMute(days: number): Promise<void> {
 
 /**
  * 최근 7일간 사용자 반응이 없으면 true를 반환한다.
- * Cold-start 보호: 브리핑 이력이 7개 미만이면 false (신규 프로젝트 과도 감소 방지).
- * DB 오류 시 false를 반환한다 (안전 기본값 — 감소 방지).
+ * userId가 있으면 해당 유저의 반응/브리핑만 확인한다.
+ * Cold-start 보호: 브리핑 이력이 7개 미만이면 false.
  */
-export async function checkNoReactionStreak(): Promise<boolean> {
+export async function checkNoReactionStreak(userId?: string | null): Promise<boolean> {
   try {
     const supabase = createServerClient();
 
     // Cold-start 보호: 충분한 브리핑 이력이 있어야 무반응 판단 가능
-    const { data: briefingRows, error: briefingError } = await supabase
-      .from('briefings')
-      .select('id')
-      .limit(NO_REACTION_DAYS);
+    let briefingQuery = supabase.from('briefings').select('id');
+    if (userId) {
+      briefingQuery = briefingQuery.eq('user_id', userId);
+    }
+    const { data: briefingRows, error: briefingError } = await briefingQuery.limit(NO_REACTION_DAYS);
 
     if (briefingError) {
       return false;
@@ -204,10 +209,15 @@ export async function checkNoReactionStreak(): Promise<boolean> {
       Date.now() - NO_REACTION_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
 
-    const { data, error } = await supabase
+    let interactionQuery = supabase
       .from('user_interactions')
       .select('id')
       .gte('created_at', sevenDaysAgo);
+    if (userId) {
+      interactionQuery = interactionQuery.eq('user_id', userId);
+    }
+
+    const { data, error } = await interactionQuery;
 
     if (error) {
       return false;
@@ -222,30 +232,31 @@ export async function checkNoReactionStreak(): Promise<boolean> {
 
 /**
  * item_reduction을 2씩 증가시킨다. 최대 MAX_ITEM_REDUCTION(4)에서 고정.
- * 새 감소량을 반환한다.
+ * userId가 있으면 해당 유저 설정, 없으면 싱글톤 행을 업데이트한다.
  */
-export async function updateItemReduction(): Promise<number> {
+export async function updateItemReduction(userId?: string | null): Promise<number> {
   const supabase = createServerClient();
 
   // 현재 값 조회
-  const { data } = await supabase
-    .from('cortex_settings')
-    .select('item_reduction')
-    .single();
+  let query = supabase.from('cortex_settings').select('item_reduction');
+  if (userId) {
+    query = query.eq('user_id', userId);
+  } else {
+    query = query.eq('id', SINGLETON_SETTINGS_ID);
+  }
+  const { data } = await query.single();
 
   const current = (data?.item_reduction as number | null) ?? 0;
   const next = Math.min(current + 2, MAX_ITEM_REDUCTION);
 
+  const upsertData = userId
+    ? { id: userId, user_id: userId, item_reduction: next, updated_at: new Date().toISOString() }
+    : { id: SINGLETON_SETTINGS_ID, item_reduction: next, updated_at: new Date().toISOString() };
+  const conflictKey = userId ? 'user_id' : 'id';
+
   await supabase
     .from('cortex_settings')
-    .upsert(
-      {
-        id: SINGLETON_SETTINGS_ID,
-        item_reduction: next,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' },
-    );
+    .upsert(upsertData, { onConflict: conflictKey });
 
   return next;
 }

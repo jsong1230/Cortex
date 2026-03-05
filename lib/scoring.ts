@@ -29,6 +29,7 @@ export interface InteractionEvent {
   contentId: string;
   interaction: string;
   tags: string[];  // 해당 콘텐츠의 토픽 태그
+  userId?: string | null;  // 멀티유저: telegram_users.id (없으면 레거시)
 }
 
 /**
@@ -45,10 +46,14 @@ export async function updateInterestScore(
   const weight = INTERACTION_WEIGHTS[event.interaction] ?? 0;
 
   // 1. 태그별 현재 점수 조회 (interest_profile)
-  const { data: profileRows, error: selectError } = await supabase
+  let selectQuery = supabase
     .from('interest_profile')
     .select('id, topic, score, interaction_count')
     .in('topic', event.tags);
+  if (event.userId) {
+    selectQuery = selectQuery.eq('user_id', event.userId);
+  }
+  const { data: profileRows, error: selectError } = await selectQuery;
 
   if (selectError) {
     throw new Error(`interest_profile 조회 실패: ${selectError.message}`);
@@ -76,13 +81,14 @@ export async function updateInterestScore(
       score: newScore,
       interaction_count: interactionCount + 1,
       last_updated: new Date().toISOString(),
+      user_id: event.userId ?? null,
     };
   });
 
-  // 3. interest_profile upsert (topic UNIQUE 제약)
+  // 3. interest_profile upsert (user_id + topic UNIQUE 제약)
   const { error: upsertError } = await supabase
     .from('interest_profile')
-    .upsert(upserts, { onConflict: 'topic' });
+    .upsert(upserts, { onConflict: 'user_id,topic' });
 
   if (upsertError) {
     throw new Error(`interest_profile upsert 실패: ${upsertError.message}`);

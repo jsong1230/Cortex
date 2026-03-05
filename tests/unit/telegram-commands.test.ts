@@ -425,7 +425,7 @@ describe('handleMute', () => {
 
     expect(result).toContain('3');
     expect(result).toContain('중단');
-    expect(mockFrom).toHaveBeenCalledWith('alert_settings');
+    expect(mockFrom).toHaveBeenCalledWith('cortex_settings');
   });
 
   it('U-07-08-2: N=0 입력 시 뮤트를 해제하고 재개 메시지를 반환한다', async () => {

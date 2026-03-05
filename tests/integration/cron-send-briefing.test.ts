@@ -34,7 +34,20 @@ const makeChain = () => ({
 });
 
 let currentChain = makeChain();
-const mockFrom = vi.fn().mockImplementation(() => currentChain);
+
+// telegram_users는 항상 빈 배열 반환 (레거시 싱글유저 모드로 테스트)
+const makeUsersChain = () => ({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  order: vi.fn().mockResolvedValue({ data: [], error: null }),
+  upsert: vi.fn().mockReturnThis(),
+  single: vi.fn().mockResolvedValue({ data: null, error: null }),
+});
+
+const mockFrom = vi.fn().mockImplementation((table: string) => {
+  if (table === 'telegram_users') return makeUsersChain();
+  return currentChain;
+});
 
 vi.mock('@/lib/supabase/server', () => ({
   createServerClient: vi.fn().mockImplementation(() => ({
@@ -133,7 +146,10 @@ describe('GET /api/cron/send-briefing — 인증', () => {
     vi.resetModules();
     mockFetch.mockReset();
     currentChain = makeChain();
-    mockFrom.mockImplementation(() => currentChain);
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'telegram_users') return makeUsersChain();
+      return currentChain;
+    });
     supabaseQueryResolve = () => Promise.resolve({ data: [], error: null });
     insertResolve = () => Promise.resolve({ data: [{ id: 'briefing-uuid' }], error: null });
   });
@@ -188,7 +204,10 @@ describe('GET /api/cron/send-briefing — 발송 흐름', () => {
     vi.resetModules();
     mockFetch.mockReset();
     currentChain = makeChain();
-    mockFrom.mockImplementation(() => currentChain);
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'telegram_users') return makeUsersChain();
+      return currentChain;
+    });
     supabaseQueryResolve = () => Promise.resolve({ data: mockContentItems, error: null });
     insertResolve = () => Promise.resolve({ data: [{ id: 'briefing-uuid' }], error: null });
   });
@@ -209,10 +228,10 @@ describe('GET /api/cron/send-briefing — 발송 흐름', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data.telegram_sent).toBe(true);
+    expect(data.data.users_sent).toBeGreaterThanOrEqual(1);
   });
 
-  it('I-02-2: 응답 구조가 { success, data: { briefing_date, items_count, telegram_sent, channels } }이다', async () => {
+  it('I-02-2: 응답 구조가 { success, data: { briefing_date, users_sent, users_total, channels, results } }이다', async () => {
     mockFetch.mockReturnValue(makeTelegramSuccess());
 
     const { GET } = await import('@/app/api/cron/send-briefing/route');
@@ -221,12 +240,14 @@ describe('GET /api/cron/send-briefing — 발송 흐름', () => {
 
     expect(data.success).toBe(true);
     expect(data.data).toHaveProperty('briefing_date');
-    expect(data.data).toHaveProperty('items_count');
-    expect(data.data).toHaveProperty('telegram_sent');
+    expect(data.data).toHaveProperty('users_sent');
+    expect(data.data).toHaveProperty('users_total');
     expect(data.data).toHaveProperty('channels');
-    expect(typeof data.data.items_count).toBe('number');
-    expect(typeof data.data.telegram_sent).toBe('boolean');
+    expect(data.data).toHaveProperty('results');
+    expect(typeof data.data.users_sent).toBe('number');
+    expect(typeof data.data.users_total).toBe('number');
     expect(typeof data.data.channels).toBe('object');
+    expect(Array.isArray(data.data.results)).toBe(true);
   });
 
   it('I-02-3: briefings 테이블에 INSERT가 호출된다', async () => {
@@ -246,15 +267,17 @@ describe('GET /api/cron/send-briefing — 발송 흐름', () => {
     expect(insertArg).toHaveProperty('telegram_sent_at');
   });
 
-  it('I-02-4: Telegram 발송이 2회 모두 실패하면 에러를 로깅하고 500을 반환한다', async () => {
+  it('I-02-4: Telegram 발송이 실패하면 에러를 로깅하고 users_sent: 0을 반환한다', async () => {
     mockFetch.mockReturnValue(makeTelegramFail());
 
     const { GET } = await import('@/app/api/cron/send-briefing/route');
     const response = await GET(makeRequest());
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data.success).toBe(false);
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.users_sent).toBe(0);
+    expect(data.data.results[0].success).toBe(false);
   });
 
   it('I-02-5: 오늘 아이템이 없으면 items_count: 0, telegram_sent: false를 반환한다', async () => {
@@ -267,6 +290,6 @@ describe('GET /api/cron/send-briefing — 발송 흐름', () => {
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.data.items_count).toBe(0);
-    expect(data.data.telegram_sent).toBe(false);
+    expect(data.data.telegram_sent).toBe(false); // 아이템 없어서 발송 안 됨
   });
 });

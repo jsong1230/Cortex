@@ -37,17 +37,22 @@ export function extractTopicsFromTags(tags: string[]): string[] {
  * 추출된 토픽 목록을 interest_profile에 등록/업데이트한다 (AC1)
  * - 신규 토픽: score=0.5 기본값으로 등록
  * - 기존 토픽: 기존 score 유지 (EMA 업데이트는 updateInterestScore에서 처리)
+ * - userId가 있으면 해당 유저의 프로필, 없으면 레거시(NULL user_id)
  */
-export async function registerTopicsToProfile(topics: string[]): Promise<void> {
+export async function registerTopicsToProfile(topics: string[], userId?: string | null): Promise<void> {
   if (topics.length === 0) return;
 
   const supabase = createServerClient();
 
   // 1. 기존 토픽 조회 (존재 여부 확인)
-  const { data: existingRows, error: selectError } = await supabase
+  let selectQuery = supabase
     .from('interest_profile')
     .select('topic, score, interaction_count')
     .in('topic', topics);
+  if (userId) {
+    selectQuery = selectQuery.eq('user_id', userId);
+  }
+  const { data: existingRows, error: selectError } = await selectQuery;
 
   if (selectError) {
     throw new Error(`interest_profile 조회 실패: ${selectError.message}`);
@@ -68,12 +73,13 @@ export async function registerTopicsToProfile(topics: string[]): Promise<void> {
     score: DEFAULT_SCORE,
     interaction_count: 0,
     last_updated: new Date().toISOString(),
+    user_id: userId ?? null,
   }));
 
-  // 3. 신규 토픽 upsert (topic UNIQUE 제약, 기존 레코드는 변경 없음)
+  // 3. 신규 토픽 upsert (user_id + topic UNIQUE 제약, 기존 레코드는 변경 없음)
   const { error: upsertError } = await supabase
     .from('interest_profile')
-    .upsert(insertRows, { onConflict: 'topic', ignoreDuplicates: true });
+    .upsert(insertRows, { onConflict: 'user_id,topic', ignoreDuplicates: true });
 
   if (upsertError) {
     throw new Error(`interest_profile 토픽 등록 실패: ${upsertError.message}`);

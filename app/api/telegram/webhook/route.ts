@@ -52,7 +52,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (update.message?.text) {
       const parsed = parseCommand(update.message.text);
       if (parsed) {
-        await dispatchCommand(parsed);
+        await dispatchCommand(parsed, update.message);
       }
       // 명령어가 아닌 일반 메시지는 무시
     }

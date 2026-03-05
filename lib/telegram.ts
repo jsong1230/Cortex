@@ -489,6 +489,7 @@ export function selectBriefingItems(
 export async function sendBriefing(
   text: string,
   webUrl: string,
+  chatId?: string,
 ): Promise<SendBriefingResult> {
   // getBotToken으로 환경변수 사전 검증 (에러를 즉시 throw)
   getBotToken();
@@ -497,10 +498,10 @@ export async function sendBriefing(
 
   const doSend = async (): Promise<SendBriefingResult> => {
     const token = getBotToken();
-    const chatId = getChatId();
+    const resolvedChatId = chatId ?? getChatId();
 
     const body: Record<string, unknown> = {
-      chat_id: chatId,
+      chat_id: resolvedChatId,
       text,
       parse_mode: 'HTML',
       reply_markup: {

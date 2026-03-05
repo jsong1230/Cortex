@@ -1,10 +1,12 @@
 // 텔레그램 봇 명령어 처리 모듈
 // F-07 설계서: docs/specs/F-07-telegram-commands/design.md
-// 명령어: /good, /bad, /save, /more, /keyword, /stats, /mute
+// 명령어: /start, /good, /bad, /save, /more, /keyword, /stats, /mute
 
 import { sendMessage, parseCallbackData } from '@/lib/telegram';
 import { createServerClient } from '@/lib/supabase/server';
 import { formatDate, toKST } from '@/lib/utils/date';
+import { getUserByTelegramId, upsertTelegramUser } from '@/lib/telegram-users';
+import { setMute } from '@/lib/fatigue-prevention';
 
 // ─── 타입 정의 ───────────────────────────────────────────────────────────────
 
@@ -96,11 +98,15 @@ export function parseCommand(text: string): ParsedCommand | null {
 
 // ─── 최신 브리핑 조회 헬퍼 ───────────────────────────────────────────────────
 
-async function getLatestBriefing(): Promise<BriefingRecord | null> {
+async function getLatestBriefing(userId?: string | null): Promise<BriefingRecord | null> {
   const supabase = createServerClient();
-  const { data } = await supabase
+  let query = supabase
     .from('briefings')
-    .select('id, briefing_date, items, telegram_sent_at, created_at')
+    .select('id, briefing_date, items, telegram_sent_at, created_at');
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+  const { data } = await query
     .order('briefing_date', { ascending: false })
     .limit(1);
 
@@ -110,14 +116,17 @@ async function getLatestBriefing(): Promise<BriefingRecord | null> {
 }
 
 /** 오늘 날짜(KST) 기준 브리핑 조회 */
-async function getTodayBriefing(): Promise<BriefingRecord | null> {
+async function getTodayBriefing(userId?: string | null): Promise<BriefingRecord | null> {
   const todayKST = formatDate(toKST(new Date()));
   const supabase = createServerClient();
-  const { data } = await supabase
+  let query = supabase
     .from('briefings')
     .select('id, briefing_date, items, telegram_sent_at, created_at')
-    .eq('briefing_date', todayKST)
-    .limit(1);
+    .eq('briefing_date', todayKST);
+  if (userId) {
+    query = query.eq('user_id', userId);
+  }
+  const { data } = await query.limit(1);
 
   if (!data || !Array.isArray(data) || data.length === 0) return null;
   return data[0] as BriefingRecord;
@@ -135,23 +144,30 @@ async function insertInteraction(
   contentId: string,
   briefingId: string | null,
   interaction: string,
+  userId?: string | null,
 ): Promise<void> {
   const supabase = createServerClient();
 
-  const data = {
+  const data: Record<string, unknown> = {
     content_id: contentId,
     briefing_id: briefingId,
     interaction,
     source: 'telegram_bot',
+    user_id: userId ?? null,
   };
 
   if (interaction === '메모') {
     // 메모는 중복 허용 — 항상 INSERT
     const { error } = await supabase.from('user_interactions').insert(data);
     if (error) throw new Error(`interaction insert 실패: ${error.message}`);
+  } else if (userId) {
+    // 유저 식별 가능: (user_id, content_id, interaction) 유니크 인덱스 활용
+    const { error } = await supabase
+      .from('user_interactions')
+      .upsert(data, { onConflict: 'user_id,content_id,interaction', ignoreDuplicates: true });
+    if (error) throw new Error(`interaction upsert 실패: ${error.message}`);
   } else {
-    // 메모 외 반응: partial unique index 기반 ON CONFLICT DO NOTHING
-    // (004_interaction_unique_constraint.sql: content_id + interaction WHERE interaction != '메모')
+    // 레거시(userId 없음): 기존 (content_id, interaction) 유니크 인덱스 활용
     const { error } = await supabase
       .from('user_interactions')
       .upsert(data, { onConflict: 'content_id,interaction', ignoreDuplicates: true });
@@ -162,10 +178,28 @@ async function insertInteraction(
 // ─── handleGood ─────────────────────────────────────────────────────────────
 
 /**
+ * /start — 사용자 등록 또는 재활성화
+ */
+export async function handleStart(params: {
+  telegramId: number;
+  chatId: number;
+  firstName?: string;
+  username?: string;
+}): Promise<string> {
+  try {
+    const user = await upsertTelegramUser(params);
+    const name = user.first_name ?? user.username ?? '사용자';
+    return `안녕하세요, ${name}님! 🎉\nCortex 브리핑 서비스에 등록되었습니다.\n매일 아침 개인화된 뉴스 브리핑을 받아보세요!\n\n사용 가능한 명령어:\n/good — 오늘 브리핑 좋아요\n/bad — 오늘 브리핑 싫어요\n/save N — N번째 아이템 저장\n/keyword XXX — 관심 키워드 추가\n/stats — 이번 달 통계\n/mute N — N일간 브리핑 중단`;
+  } catch {
+    return '등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+  }
+}
+
+/**
  * /good — 마지막 브리핑 전체 긍정 반응 기록 (AC1)
  */
-export async function handleGood(): Promise<string> {
-  const briefing = await getLatestBriefing();
+export async function handleGood(userId?: string | null): Promise<string> {
+  const briefing = await getLatestBriefing(userId);
 
   if (!briefing) {
     return '아직 브리핑이 없습니다. 내일 아침을 기다려주세요!';
@@ -173,7 +207,7 @@ export async function handleGood(): Promise<string> {
 
   const items = Array.isArray(briefing.items) ? briefing.items : [];
   for (const item of items) {
-    await insertInteraction(item.content_id, briefing.id, '좋아요');
+    await insertInteraction(item.content_id, briefing.id, '좋아요', userId);
   }
 
   return '브리핑에 좋아요를 남겼습니다! 오늘 브리핑이 마음에 드셨군요 😊';
@@ -184,8 +218,8 @@ export async function handleGood(): Promise<string> {
 /**
  * /bad — 마지막 브리핑 전체 부정 반응 기록 + 후속 질문 (AC2)
  */
-export async function handleBad(): Promise<string> {
-  const briefing = await getLatestBriefing();
+export async function handleBad(userId?: string | null): Promise<string> {
+  const briefing = await getLatestBriefing(userId);
 
   if (!briefing) {
     return '아직 브리핑이 없습니다. 내일 아침을 기다려주세요!';
@@ -193,7 +227,7 @@ export async function handleBad(): Promise<string> {
 
   const items = Array.isArray(briefing.items) ? briefing.items : [];
   for (const item of items) {
-    await insertInteraction(item.content_id, briefing.id, '싫어요');
+    await insertInteraction(item.content_id, briefing.id, '싫어요', userId);
   }
 
   return '브리핑에 싫어요를 남겼습니다.\n어떤 주제가 별로였나요? /keyword 명령어로 관심 없는 주제를 알려주시면 학습에 반영할게요.\n예) /keyword 주식';
@@ -204,13 +238,13 @@ export async function handleBad(): Promise<string> {
 /**
  * /save N — 오늘 브리핑 N번째 아이템 저장 (AC3)
  */
-export async function handleSave(n: number): Promise<string> {
+export async function handleSave(n: number, userId?: string | null): Promise<string> {
   // 유효성 검증: 1 이상의 정수여야 함
   if (!Number.isInteger(n) || n < 1) {
     return '유효하지 않은 번호입니다. /save 1 형식으로 입력해주세요.';
   }
 
-  const briefing = await getTodayBriefing();
+  const briefing = await getTodayBriefing(userId);
   if (!briefing) {
     return '오늘 브리핑이 없습니다. 내일 아침을 기다려주세요!';
   }
@@ -222,7 +256,7 @@ export async function handleSave(n: number): Promise<string> {
     return `유효하지 않은 번호입니다. 오늘 브리핑에는 ${items.length}개의 아이템이 있습니다.`;
   }
 
-  await insertInteraction(target.content_id, briefing.id, '저장');
+  await insertInteraction(target.content_id, briefing.id, '저장', userId);
   return `${n}번째 아이템을 저장했습니다! /history 또는 웹에서 확인할 수 있어요.`;
 }
 
@@ -244,7 +278,7 @@ export function handleMore(): string {
 /**
  * /keyword XXX — 관심 키워드를 interest_profile에 추가 (AC5)
  */
-export async function handleKeyword(word: string): Promise<string> {
+export async function handleKeyword(word: string, userId?: string | null): Promise<string> {
   const trimmed = word.trim();
   if (!trimmed) {
     return '키워드를 입력해주세요. 예) /keyword LLM';
@@ -257,8 +291,9 @@ export async function handleKeyword(word: string): Promise<string> {
       score: 0.7,
       interaction_count: 1,
       last_updated: new Date().toISOString(),
+      user_id: userId ?? null,
     },
-    { onConflict: 'topic' },
+    { onConflict: 'user_id,topic' },
   );
 
   return `'${trimmed}'를 관심 키워드로 추가했습니다! 다음 브리핑부터 반영돼요.`;
@@ -269,7 +304,7 @@ export async function handleKeyword(word: string): Promise<string> {
 /**
  * /stats — 이번 달 관심 토픽 Top 5 + 읽은 아티클 수 (AC6)
  */
-export async function handleStats(): Promise<string> {
+export async function handleStats(userId?: string | null): Promise<string> {
   const supabase = createServerClient();
 
   // 이번 달 첫날 계산 (KST)
@@ -278,18 +313,26 @@ export async function handleStats(): Promise<string> {
   const yearMonth = `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
 
   // 이번 달 반응 수 조회 (좋아요, 저장, 링크클릭, 웹열기)
-  const { data: interactions } = await supabase
+  let interactionQuery = supabase
     .from('user_interactions')
     .select('id')
     .gte('created_at', monthStart)
     .filter('interaction', 'in', '("좋아요","저장","링크클릭","웹열기")');
+  if (userId) {
+    interactionQuery = interactionQuery.eq('user_id', userId);
+  }
+  const { data: interactions } = await interactionQuery;
 
   const articleCount = Array.isArray(interactions) ? interactions.length : 0;
 
   // 관심 토픽 Top 5 조회
-  const { data: topics } = await supabase
+  let topicQuery = supabase
     .from('interest_profile')
-    .select('topic, score')
+    .select('topic, score');
+  if (userId) {
+    topicQuery = topicQuery.eq('user_id', userId);
+  }
+  const { data: topics } = await topicQuery
     .order('score', { ascending: false })
     .limit(5);
 
@@ -323,34 +366,12 @@ export async function handleStats(): Promise<string> {
  * /mute N — N일간 브리핑 중단 (방학 모드) (AC7)
  * N=0이면 뮤트 해제
  */
-export async function handleMute(n: number): Promise<string> {
-  const supabase = createServerClient();
+export async function handleMute(n: number, userId?: string | null): Promise<string> {
+  await setMute(n, userId);
 
   if (n <= 0) {
-    // 뮤트 해제
-    await supabase.from('alert_settings').upsert(
-      {
-        trigger_type: 'briefing_mute',
-        is_enabled: false,
-        daily_count: 0,
-        last_triggered_at: new Date().toISOString(),
-      },
-      { onConflict: 'trigger_type' },
-    );
     return '브리핑 수신이 재개됩니다!';
   }
-
-  // N일간 뮤트 설정
-  await supabase.from('alert_settings').upsert(
-    {
-      trigger_type: 'briefing_mute',
-      is_enabled: true,
-      daily_count: n,
-      last_triggered_at: new Date().toISOString(),
-    },
-    { onConflict: 'trigger_type' },
-  );
-
   return `${n}일간 브리핑을 중단합니다. 다시 받으려면 /mute 0 을 입력하세요.`;
 }
 
@@ -363,6 +384,7 @@ export function handleUnknown(command: string): string {
   return `알 수 없는 명령어: /${command}
 
 사용 가능한 명령어:
+/start — 서비스 등록
 /good — 오늘 브리핑 좋아요
 /bad — 오늘 브리핑 싫어요 + 피드백
 /save N — N번째 아이템 저장
@@ -405,8 +427,16 @@ export async function handleCallbackQuery(
       return; // 알 수 없는 action은 무시
   }
 
+  // 콜백 발신자의 telegram_id로 userId 조회
+  const telegramId = callbackQuery.from?.id;
+  let userId: string | null = null;
+  if (telegramId) {
+    const user = await getUserByTelegramId(telegramId).catch(() => null);
+    userId = user?.id ?? null;
+  }
+
   // UPSERT로 중복 반응 방지
-  await insertInteraction(contentId, null, interaction);
+  await insertInteraction(contentId, null, interaction, userId);
 }
 
 // ─── dispatchCommand ────────────────────────────────────────────────────────
@@ -414,22 +444,42 @@ export async function handleCallbackQuery(
 /**
  * 파싱된 명령어를 해당 핸들러로 디스패치하고
  * 텔레그램으로 응답을 발송한다.
+ * message: 원본 TelegramMessage (발신자 및 chatId 정보 포함)
  */
 export async function dispatchCommand(
   parsed: ParsedCommand,
+  message: TelegramMessage,
 ): Promise<void> {
   let responseText: string;
 
+  const chatId = String(message.chat.id);
+  const telegramId = message.from?.id;
+
+  // 발신자의 telegram_users.id 조회 (없으면 null → 레거시 모드)
+  let userId: string | null = null;
+  if (telegramId) {
+    const user = await getUserByTelegramId(telegramId).catch(() => null);
+    userId = user?.id ?? null;
+  }
+
   // eslint-disable-next-line no-console
-  console.info(JSON.stringify({ event: 'cortex_command_dispatch', command: parsed.command, args: parsed.args }));
+  console.info(JSON.stringify({ event: 'cortex_command_dispatch', command: parsed.command, args: parsed.args, telegram_id: telegramId, user_id: userId }));
 
   switch (parsed.command) {
+    case 'start':
+      responseText = await handleStart({
+        telegramId: telegramId ?? 0,
+        chatId: message.chat.id,
+        firstName: message.from?.first_name,
+      });
+      break;
+
     case 'good':
-      responseText = await handleGood();
+      responseText = await handleGood(userId);
       break;
 
     case 'bad':
-      responseText = await handleBad();
+      responseText = await handleBad(userId);
       break;
 
     case 'save': {
@@ -438,7 +488,7 @@ export async function dispatchCommand(
       if (!rawN || isNaN(n)) {
         responseText = '유효하지 않은 번호입니다. /save 1 형식으로 입력해주세요.';
       } else {
-        responseText = await handleSave(n);
+        responseText = await handleSave(n, userId);
       }
       break;
     }
@@ -449,12 +499,12 @@ export async function dispatchCommand(
 
     case 'keyword': {
       const word = parsed.args.join(' ');
-      responseText = await handleKeyword(word);
+      responseText = await handleKeyword(word, userId);
       break;
     }
 
     case 'stats':
-      responseText = await handleStats();
+      responseText = await handleStats(userId);
       break;
 
     case 'mute': {
@@ -463,7 +513,7 @@ export async function dispatchCommand(
       if (!rawN || isNaN(n)) {
         responseText = '/mute N 형식으로 입력해주세요. 예) /mute 3';
       } else {
-        responseText = await handleMute(n);
+        responseText = await handleMute(n, userId);
       }
       break;
     }
@@ -476,5 +526,5 @@ export async function dispatchCommand(
   // eslint-disable-next-line no-console
   console.info(JSON.stringify({ event: 'cortex_command_response', command: parsed.command, response: responseText.slice(0, 100) }));
 
-  await sendMessage({ text: responseText });
+  await sendMessage({ text: responseText, chatId });
 }

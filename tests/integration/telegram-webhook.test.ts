@@ -518,7 +518,7 @@ describe('POST /api/telegram/webhook — /mute 명령어 (I-07-07)', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(200);
-    expect(mockFrom).toHaveBeenCalledWith('alert_settings');
+    expect(mockFrom).toHaveBeenCalledWith('cortex_settings');
     expect(mockUpsert).toHaveBeenCalled();
     const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(fetchBody.text).toContain('3');

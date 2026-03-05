@@ -14,7 +14,9 @@ const mockSingle = vi.fn().mockImplementation(async () => ({
   error: mockError,
 }));
 
-const mockSelectChain = vi.fn().mockReturnValue({ single: mockSingle });
+const mockChainObj = { single: mockSingle, eq: vi.fn() };
+mockChainObj.eq = vi.fn().mockReturnValue(mockChainObj);
+const mockSelectChain = vi.fn().mockReturnValue(mockChainObj);
 const mockUpsert = vi.fn().mockImplementation(async () => ({
   data: null,
   error: mockUpsertError,
