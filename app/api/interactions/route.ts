@@ -5,7 +5,7 @@
 // F-23 AC4: 세렌디피티 아이템 반응 별도 추적
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/supabase/auth';
+import { getAuthUser, getTelegramUserId } from '@/lib/supabase/auth';
 import { createServerClient } from '@/lib/supabase/server';
 import { type InteractionType, VALID_INTERACTIONS } from '@/lib/interactions/types';
 import { updateInterestScore } from '@/lib/scoring';
@@ -148,6 +148,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // 8. 학습 루프: content_items 태그 조회 후 interest_profile 업데이트 (AC1, AC2, AC3)
   // 비동기 fire-and-forget (학습 실패가 반응 저장을 블록하면 안 됨)
+  const telegramUserId = await getTelegramUserId();
   void (async () => {
     try {
       const { data: contentItem } = await supabase
@@ -161,12 +162,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       if (topics.length > 0) {
         // AC1: 신규 토픽 등록
-        await registerTopicsToProfile(topics);
+        await registerTopicsToProfile(topics, telegramUserId);
         // AC2+AC3: EMA 업데이트
         await updateInterestScore({
           contentId: body.content_id,
           interaction: body.interaction,
           tags: topics,
+          userId: telegramUserId,
         });
       }
 

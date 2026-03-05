@@ -8,12 +8,14 @@ import {
   updateChannelSettings,
   type ChannelSettings,
 } from '@/lib/fatigue-prevention';
+import { getTelegramUserId } from '@/lib/supabase/auth';
 
 // ─── GET: 채널 설정 조회 ─────────────────────────────────────────────────────
 
 export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
-    const settings = await getChannelSettings();
+    const userId = await getTelegramUserId();
+    const settings = await getChannelSettings(userId);
 
     return NextResponse.json({
       success: true,
@@ -76,7 +78,8 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     canada:  obj.canada,
   };
 
-  const result = await updateChannelSettings(settings);
+  const userId = await getTelegramUserId();
+  const result = await updateChannelSettings(settings, userId);
   if (!result.success) {
     return NextResponse.json(
       { success: false, error: result.error ?? '저장 실패' },

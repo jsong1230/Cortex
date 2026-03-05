@@ -2,8 +2,9 @@
  * GET /api/auth/telegram
  * 텔레그램 로그인 위젯 콜백 처리
  *
- * AC2: 텔레그램 로그인 위젯으로 텔레그램 계정과 웹 계정이 연동된다
  * AC1: Supabase Auth를 통해 웹 로그인이 동작한다
+ * AC2: 텔레그램 로그인 위젯으로 텔레그램 계정과 웹 계정이 연동된다
+ * 멀티유저: telegram_users에 upsert 후 telegram_users.id를 user_metadata에 저장
  */
 import { NextResponse } from 'next/server';
 import {
@@ -12,6 +13,7 @@ import {
   type TelegramLoginData,
 } from '@/lib/auth/telegram-verify';
 import { createServerClient as createSupabaseAdmin } from '@/lib/supabase/server';
+import { upsertTelegramUser } from '@/lib/telegram-users';
 
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
@@ -71,38 +73,43 @@ export async function GET(request: Request): Promise<NextResponse> {
     );
   }
 
-  // 1인 전용 서비스: TELEGRAM_CHAT_ID 허용 목록 검증
-  const allowedChatId = process.env.TELEGRAM_CHAT_ID;
-  if (allowedChatId && String(telegramData.id) !== allowedChatId) {
-    return NextResponse.json(
-      { error: '허용되지 않은 사용자입니다.' },
-      { status: 403 }
-    );
+  // telegram_users에 upsert (멀티유저 등록/갱신)
+  let telegramUserRecord: { id: string } | null = null;
+  try {
+    telegramUserRecord = await upsertTelegramUser({
+      telegramId: telegramData.id,
+      chatId: telegramData.id,  // DM용 chat_id (= telegram_id for private chats)
+      firstName: telegramData.first_name,
+      username: telegramData.username,
+    });
+  } catch {
+    // telegram_users upsert 실패해도 로그인은 계속 진행
   }
 
-  // Supabase Admin API로 사용자 upsert
+  // Supabase Admin API로 auth 사용자 upsert
   const adminClient = createSupabaseAdmin();
   const telegramEmail = `${telegramData.id}@telegram.cortex.local`;
 
-  // 기존 사용자 조회 (1인 전용 서비스이므로 listUsers 허용)
-  const { data: existingUsers } =
-    await adminClient.auth.admin.listUsers();
-
+  // 기존 사용자 조회
+  const { data: existingUsers } = await adminClient.auth.admin.listUsers();
   const existingUser = existingUsers?.users?.find(
     (u) => u.email === telegramEmail
   );
+
+  const userMetadata = {
+    telegram_id: telegramData.id,
+    username: telegramData.username ?? null,
+    first_name: telegramData.first_name,
+    last_name: telegramData.last_name ?? null,
+    telegram_user_id: telegramUserRecord?.id ?? null,
+  };
 
   if (!existingUser) {
     // 신규 사용자 생성
     const { error: createError } = await adminClient.auth.admin.createUser({
       email: telegramEmail,
       email_confirm: true,
-      user_metadata: {
-        telegram_id: telegramData.id,
-        username: telegramData.username ?? null,
-        first_name: telegramData.first_name,
-        last_name: telegramData.last_name ?? null,
-      },
+      user_metadata: userMetadata,
     });
 
     if (createError) {
@@ -111,6 +118,11 @@ export async function GET(request: Request): Promise<NextResponse> {
         { status: 500 }
       );
     }
+  } else if (telegramUserRecord?.id && existingUser.user_metadata?.telegram_user_id !== telegramUserRecord.id) {
+    // 기존 사용자에 telegram_user_id 갱신
+    await adminClient.auth.admin.updateUserById(existingUser.id, {
+      user_metadata: { ...existingUser.user_metadata, telegram_user_id: telegramUserRecord.id },
+    });
   }
 
   // Magic link (OTP) 생성으로 세션 토큰 획득
@@ -129,11 +141,8 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   // redirect 파라미터 처리 (기본값 /, Open Redirect 방지)
   const rawRedirect = searchParams.get('redirect') ?? '/';
-  // 외부 URL 방지: 절대 경로(/로 시작)만 허용
   const redirectPath = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
 
-  // 클라이언트에서 세션 교환을 처리하기 위해 /api/auth/callback으로 이동
-  // OTP 토큰을 query string으로 전달
   const callbackUrl = new URL('/api/auth/callback', request.url);
   callbackUrl.searchParams.set('token_hash', linkData.properties.hashed_token);
   callbackUrl.searchParams.set('type', 'magiclink');

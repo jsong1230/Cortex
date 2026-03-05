@@ -4,7 +4,7 @@
 // 인증: Supabase Auth 세션
 
 import { NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/supabase/auth';
+import { getAuthUser, getTelegramUserId } from '@/lib/supabase/auth';
 import { createServerClient } from '@/lib/supabase/server';
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
@@ -53,13 +53,20 @@ export async function GET(): Promise<NextResponse> {
   }
 
   const supabase = createServerClient();
+  const telegramUserId = await getTelegramUserId();
 
-  // 2. 활성 토픽 조회 (score DESC)
-  const { data: profileData, error: profileError } = await supabase
+  // 2. 활성 토픽 조회 (score DESC) — 유저별 필터
+  let profileQuery = supabase
     .from('interest_profile')
     .select('id, topic, score, interaction_count, last_updated')
     .is('archived_at', null)
     .order('score', { ascending: false });
+  if (telegramUserId) {
+    profileQuery = profileQuery.eq('user_id', telegramUserId);
+  } else {
+    profileQuery = profileQuery.is('user_id', null);
+  }
+  const { data: profileData, error: profileError } = await profileQuery;
 
   if (profileError) {
     // eslint-disable-next-line no-console

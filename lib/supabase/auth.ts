@@ -60,3 +60,15 @@ export async function getAuthUser(): Promise<User | null> {
     return null;
   }
 }
+
+/**
+ * 현재 인증된 사용자의 telegram_users.id를 반환한다.
+ * user_metadata.telegram_user_id에 저장된 값을 읽는다.
+ * 미인증 또는 미연결 시 null 반환.
+ */
+export async function getTelegramUserId(): Promise<string | null> {
+  const user = await getAuthUser();
+  if (!user) return null;
+  const telegramUserId = user.user_metadata?.telegram_user_id;
+  return typeof telegramUserId === 'string' ? telegramUserId : null;
+}

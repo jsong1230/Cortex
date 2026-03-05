@@ -10,6 +10,7 @@ let mockUser: { id: string } | null = { id: 'user-uuid-001' };
 
 vi.mock('@/lib/supabase/auth', () => ({
   getAuthUser: vi.fn().mockImplementation(async () => mockUser),
+  getTelegramUserId: vi.fn().mockResolvedValue(null),
 }));
 
 // markAsReading 모킹 (F-19 reading-loop)

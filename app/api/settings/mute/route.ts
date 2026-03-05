@@ -5,12 +5,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getMuteStatus, setMute } from '@/lib/fatigue-prevention';
+import { getTelegramUserId } from '@/lib/supabase/auth';
 
 // ─── GET: 뮤트 상태 조회 ─────────────────────────────────────────────────────
 
 export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
-    const status = await getMuteStatus();
+    const userId = await getTelegramUserId();
+    const status = await getMuteStatus(userId);
 
     return NextResponse.json({
       success: true,
@@ -65,8 +67,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const userId = await getTelegramUserId();
   try {
-    await setMute(days);
+    await setMute(days, userId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
@@ -92,8 +95,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 // ─── DELETE: 뮤트 해제 ───────────────────────────────────────────────────────
 
 export async function DELETE(_request: NextRequest): Promise<NextResponse> {
+  const userId = await getTelegramUserId();
   try {
-    await setMute(0);
+    await setMute(0, userId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(

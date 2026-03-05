@@ -10,6 +10,7 @@ let mockUser: { id: string } | null = { id: 'user-uuid-001' };
 
 vi.mock('@/lib/supabase/auth', () => ({
   getAuthUser: vi.fn().mockImplementation(async () => mockUser),
+  getTelegramUserId: vi.fn().mockResolvedValue(null),
 }));
 
 // ─── scoring 및 topic-extractor 모킹 ─────────────────────────────────────────
@@ -54,18 +55,33 @@ const makeInterestProfileMock = () => ({
       }),
     }),
     is: vi.fn().mockReturnValue({
-      order: vi.fn().mockResolvedValue({
-        data: [
-          {
-            id: 'uuid-1',
-            topic: 'AI',
-            score: 0.9,
-            interaction_count: 10,
-            last_updated: '2026-02-01T00:00:00Z',
-            archived_at: null,
-          },
-        ],
-        error: null,
+      order: vi.fn().mockReturnValue({
+        is: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'uuid-1',
+              topic: 'AI',
+              score: 0.9,
+              interaction_count: 10,
+              last_updated: '2026-02-01T00:00:00Z',
+              archived_at: null,
+            },
+          ],
+          error: null,
+        }),
+        eq: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'uuid-1',
+              topic: 'AI',
+              score: 0.9,
+              interaction_count: 10,
+              last_updated: '2026-02-01T00:00:00Z',
+              archived_at: null,
+            },
+          ],
+          error: null,
+        }),
       }),
     }),
   }),

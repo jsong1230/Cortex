@@ -9,6 +9,7 @@ let mockUser: { id: string } | null = { id: 'user-uuid-001' };
 
 vi.mock('@/lib/supabase/auth', () => ({
   getAuthUser: vi.fn().mockImplementation(async () => mockUser),
+  getTelegramUserId: vi.fn().mockResolvedValue(null),
 }));
 
 // ─── Supabase server 모킹 ────────────────────────────────────────────────────
@@ -29,13 +30,17 @@ vi.mock('@/lib/supabase/server', () => ({
     from: vi.fn().mockImplementation((table: string) => {
       fromCallCount++;
       if (table === 'interest_profile') {
+        // 체인: select → is(archived_at) → order → eq/is(user_id) → await
+        const makeProfileResult = () =>
+          Promise.resolve({ data: mockProfileData, error: mockProfileError });
+        const orderResult = {
+          eq: vi.fn().mockImplementation(() => makeProfileResult()),
+          is: vi.fn().mockImplementation(() => makeProfileResult()),
+        };
         return {
           select: vi.fn().mockReturnValue({
             is: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: mockProfileData,
-                error: mockProfileError,
-              }),
+              order: vi.fn().mockReturnValue(orderResult),
             }),
           }),
         };

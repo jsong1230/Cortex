@@ -6,7 +6,7 @@
 // 인증: Supabase Auth 세션
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/supabase/auth';
+import { getAuthUser, getTelegramUserId } from '@/lib/supabase/auth';
 import { createServerClient } from '@/lib/supabase/server';
 
 // ─── 공통 타입 ────────────────────────────────────────────────────────────────
@@ -33,13 +33,20 @@ export async function GET(): Promise<NextResponse> {
   }
 
   const supabase = createServerClient();
+  const telegramUserId = await getTelegramUserId();
 
-  // 2. 보관되지 않은 토픽 조회 (score DESC 정렬)
-  const { data, error } = await supabase
+  // 2. 보관되지 않은 토픽 조회 (score DESC 정렬) — 유저별 필터
+  let query = supabase
     .from('interest_profile')
     .select('id, topic, score, interaction_count, last_updated, archived_at')
     .is('archived_at', null)
     .order('score', { ascending: false });
+  if (telegramUserId) {
+    query = query.eq('user_id', telegramUserId);
+  } else {
+    query = query.is('user_id', null);
+  }
+  const { data, error } = await query;
 
   if (error) {
     // eslint-disable-next-line no-console
@@ -106,6 +113,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const topic = topicRaw.trim();
 
   const supabase = createServerClient();
+  const telegramUserId = await getTelegramUserId();
 
   // 3. 신규 토픽 INSERT (기본 score=0.5)
   const { data, error } = await supabase
@@ -115,6 +123,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       score: 0.5,
       interaction_count: 0,
       last_updated: new Date().toISOString(),
+      user_id: telegramUserId ?? null,
     })
     .select('id, topic, score, interaction_count, last_updated, archived_at')
     .single();
