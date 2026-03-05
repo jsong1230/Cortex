@@ -54,7 +54,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
     success: true,
     data: {
       linked,
-      chat_id_masked: linked ? maskChatId(chatId) : null,
+      chat_id_masked: linked ? maskChatId(chatId!) : null,
       bot_username: botUsername,
     },
   });
