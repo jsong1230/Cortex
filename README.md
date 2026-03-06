@@ -283,7 +283,7 @@ npm run lint         # ESLint 검사
 | 콘텐츠 수집 | `30 21 * * *` | 매일 06:30 |
 | 평일 브리핑 발송 | `0 22 * * 1-5` | 평일 07:00 |
 | 주말 브리핑 발송 | `0 0 * * 0,6` | 주말 09:00 |
-| 긴급 알림 체크 | `0 * * * *` | 매시간 정각 |
+| 긴급 알림 체크 | `0 2 * * *` | 매일 11:00 (Hobby 플랜 제한) |
 | 토픽 아카이브 | `0 3 * * 0` | 매주 일요일 12:00 |
 | 컨텍스트 동기화 | `0 21 * * *` | 매일 06:30 |
 | 스코어 스냅샷 | `0 14 * * *` | 매일 23:00 |
@@ -369,7 +369,7 @@ npm run test:e2e
 - **안정성**: race condition 완전 해결 (UPSERT + DB UNIQUE)
 - **코드 품질**: recencyScore 실제 계산, serendipity 가중치 정규화
 - **성능**: DB 복합 인덱스 6개 추가
-- **운영**: 표준 로거, Cron 타임아웃, Claude API 비용 추적, alerts/check 매시간 수정
+- **운영**: 표준 로거, Cron 타임아웃, Claude API 비용 추적
 - **멀티유저**: 가족 4명 개인화 브리핑 지원 (telegram_users 테이블, /start 명령어)
 
 자세한 내용: [`docs/project/improvement-plan.md`](docs/project/improvement-plan.md)

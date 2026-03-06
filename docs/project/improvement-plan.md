@@ -20,7 +20,7 @@
 | 관측성 | ✅ | I-13~I-15: 표준 로거, cron 타임아웃, API 비용 추적 |
 | 멀티유저 | ✅ | I-16~I-18: 가족 4명 개인화 브리핑 지원 (014_multi_user.sql) |
 | 문서 | ✅ | features.md AC 122개 체크 완료 (I-21), improvement-plan 최신화 |
-| 운영 모니터링 | ✅ | I-20: alerts/check cron `0 * * * *` (매시간)으로 수정 완료 |
+| 운영 모니터링 | ⚠️ | I-20: alerts/check 1시간 주기 원하나 Hobby 플랜 제약 (일 1회 유지) |
 
 ---
 
@@ -155,12 +155,13 @@
 
 ## Phase 6 — 신규 개선 항목 (2026-03-06 발굴)
 
-### I-20: alerts/check cron 스케줄 수정 ✅ 완료 (2026-03-06)
+### I-20: alerts/check cron 스케줄 — Hobby 플랜 제약으로 보류
 - **파일**: `vercel.json`
-- **문제**: `alerts/check`가 `0 2 * * *` (하루 1회)으로 잘못 설정됨
+- **문제**: `alerts/check`가 `0 2 * * *` (하루 1회)으로 설정됨
 - **F-15 AC1 명세**: "1시간마다 Vercel Cron이 긴급 알림 트리거를 체크한다"
-- **해결**: `0 * * * *` (매시간 정각 UTC)으로 변경
-- **주의**: Vercel Pro 이상 플랜 필요 (Free는 1일 1회 제한)
+- **현황**: Vercel **Hobby 플랜** 제약 — 일 1회 초과 cron 불가
+- **해결 방안**: Pro 플랜 업그레이드 후 `0 * * * *` (매시간)으로 변경
+- **임시 조치**: `0 2 * * *` (KST 11:00) 유지 — 긴급 알림 1일 1회 체크
 
 ### I-21: features.md 인수조건 체크 완료
 - **파일**: `docs/project/features.md`
@@ -191,5 +192,5 @@
 | I-17 | 멀티유저 브리핑 발송 파이프라인 | ✅ 완료 | 1일 |
 | I-18 | 멀티유저 웹 API user_id 격리 | ✅ 완료 | 4시간 |
 | I-19 | telegram-users.ts 단위 테스트 | ✅ 완료 | 1시간 |
-| I-20 | alerts/check cron 스케줄 수정 | ✅ 완료 | 30분 |
+| I-20 | alerts/check cron 스케줄 | ⚠️ Hobby 플랜 제약 (Pro 업그레이드 시 해결) | - |
 | I-21 | features.md AC 체크 완료 | ✅ 완료 | 30분 |
