@@ -1,6 +1,6 @@
 # Cortex — 개인화 AI 브리핑 봇
 
-> 매일 아침 7시, 텔레그램으로 발송되는 AI 큐레이션 브리핑 서비스
+> 매일 아침 7시, 텔레그램으로 발송되는 AI 큐레이션 브리핑 서비스 — 가족 멀티유저 지원
 
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://typescriptlang.org)
@@ -12,9 +12,11 @@
 
 ## 개요
 
-Cortex는 5개 채널(TECH / WORLD / CULTURE / TORONTO / 세렌디피티)에서 콘텐츠를 수집하고, Claude API로 요약·선별하여 매일 아침 텔레그램으로 발송하는 개인 AI 큐레이션 서비스입니다.
+Cortex는 5개 채널(TECH / WORLD / CULTURE / TORONTO / 세렌디피티)에서 콘텐츠를 수집하고, Claude API로 요약·선별하여 매일 아침 텔레그램으로 발송하는 AI 큐레이션 서비스입니다.
 
 사용자의 반응(👍 👎 🔖 💬)을 학습하여 관심사 프로필을 지속적으로 업데이트하고, 브리핑 품질을 점진적으로 개선합니다.
+
+**멀티유저 지원**: 가족 구성원 각자가 `/start`로 등록하면 독립적인 관심사 프로필과 개인화 브리핑을 받을 수 있습니다.
 
 ```
 [수집기 4채널]  →  [Claude 요약/스코어링]  →  [텔레그램 발송]
@@ -42,6 +44,7 @@ Cortex는 5개 채널(TECH / WORLD / CULTURE / TORONTO / 세렌디피티)에서 
 
 | 명령어 | 기능 |
 |--------|------|
+| `/start` | 서비스 등록 (멀티유저 — 가족 구성원 각자 실행) |
 | `/good` | 현재 아이템 좋아요 (관심도 +) |
 | `/bad` | 현재 아이템 싫어요 (관심도 -) |
 | `/save` | 저장 목록에 추가 |
@@ -133,13 +136,14 @@ cortex/
 │   ├── scoring.ts                        # EMA 스코어링 + recencyScore
 │   ├── serendipity.ts                    # 세렌디피티 역가중치 선정
 │   ├── telegram.ts                       # 텔레그램 봇 유틸
+│   ├── telegram-users.ts                 # 멀티유저 관리 (등록/조회)
 │   ├── telegram-commands.ts              # 봇 명령어 핸들러
 │   ├── mylifeos.ts                       # My Life OS DB 연동
 │   ├── alerts.ts                         # 긴급 알림 로직
 │   ├── weekly-digest.ts                  # 주말 Weekly Digest
 │   └── monthly-report.ts                 # AI 월간 리포트 생성
 ├── supabase/
-│   └── migrations/                       # DB 마이그레이션 (001~013)
+│   └── migrations/                       # DB 마이그레이션 (001~014)
 ├── components/                           # React UI 컴포넌트
 ├── tests/
 │   ├── unit/                             # Vitest 유닛 테스트
@@ -147,7 +151,7 @@ cortex/
 └── docs/
     └── project/
         ├── roadmap.md                    # 전체 로드맵
-        └── improvement-plan.md           # 개선 계획 (I-01~I-15)
+        └── improvement-plan.md           # 개선 계획 (I-01~I-21)
 ```
 
 ---
@@ -158,10 +162,11 @@ Supabase (PostgreSQL + pgvector) 기반. 주요 테이블:
 
 | 테이블 | 설명 |
 |--------|------|
+| `telegram_users` | 등록된 텔레그램 사용자 (telegram_id ↔ UUID 매핑, 멀티유저 기반) |
 | `content_items` | 수집된 콘텐츠 (채널, 제목, URL, AI 요약, 초기 스코어) |
-| `briefings` | 매일 발송된 브리핑 기록 (items JSONB 포함) |
-| `user_interactions` | 사용자 반응 로그 (학습 엔진 핵심 데이터) |
-| `interest_profile` | 토픽별 EMA 스코어 + pgvector 임베딩 |
+| `briefings` | 매일 발송된 브리핑 기록 (items JSONB, user_id 격리) |
+| `user_interactions` | 사용자 반응 로그 (학습 엔진 핵심 데이터, user_id 격리) |
+| `interest_profile` | 토픽별 EMA 스코어 + pgvector 임베딩 (user_id 격리) |
 | `alert_settings` | 긴급 알림 트리거 설정 |
 | `saved_items` | 저장 아이템 읽기 상태 (저장/읽는중/완독/보관) |
 | `score_history` | 관심도 스코어 변화 이력 |
@@ -230,7 +235,7 @@ brew install supabase/tap/supabase
 # 프로젝트 링크
 supabase link --project-ref your_project_ref
 
-# 마이그레이션 적용 (001~013 순서대로)
+# 마이그레이션 적용 (001~014 순서대로)
 supabase db push
 ```
 
@@ -278,7 +283,7 @@ npm run lint         # ESLint 검사
 | 콘텐츠 수집 | `30 21 * * *` | 매일 06:30 |
 | 평일 브리핑 발송 | `0 22 * * 1-5` | 평일 07:00 |
 | 주말 브리핑 발송 | `0 0 * * 0,6` | 주말 09:00 |
-| 긴급 알림 체크 | `0 2 * * *` | 매일 11:00 |
+| 긴급 알림 체크 | `0 * * * *` | 매시간 정각 |
 | 토픽 아카이브 | `0 3 * * 0` | 매주 일요일 12:00 |
 | 컨텍스트 동기화 | `0 21 * * *` | 매일 06:30 |
 | 스코어 스냅샷 | `0 14 * * *` | 매일 23:00 |
@@ -345,11 +350,12 @@ npx vitest tests/unit/scoring.test.ts
 npm run test:e2e
 ```
 
-테스트 커버리지: **989 테스트 / 94 파일** 통과
+테스트 커버리지: **1007 테스트 / 95 파일** 통과
 
 주요 테스트 항목:
 - `scoring.test.ts` — recencyScore 지수 감쇠, calculateTechScore 부분 정보 처리
 - `telegram-commands-dedup.test.ts` — race condition (동시 5개 요청 시나리오)
+- `telegram-users.test.ts` — 멀티유저 등록/조회 (getUserByTelegramId, getActiveUsers, upsertTelegramUser)
 - `date.test.ts` — KST/UTC 타임존 경계값 (UTC 00:00~09:00 구간)
 - `serendipity/inverse-weight.test.ts` — 역가중치 정규화 (0.05~1.0)
 
@@ -357,13 +363,14 @@ npm run test:e2e
 
 ## 개선 이력
 
-24개 기능 구현 후 안정화 단계에서 15개 개선 항목(I-01~I-15) 완료:
+24개 기능 구현 후 안정화 단계에서 21개 개선 항목(I-01~I-21) 완료:
 
 - **보안**: webhook 디버그 정보 제거, 환경변수 시작 시 검증
 - **안정성**: race condition 완전 해결 (UPSERT + DB UNIQUE)
 - **코드 품질**: recencyScore 실제 계산, serendipity 가중치 정규화
 - **성능**: DB 복합 인덱스 6개 추가
-- **운영**: 표준 로거, Cron 타임아웃, Claude API 비용 추적
+- **운영**: 표준 로거, Cron 타임아웃, Claude API 비용 추적, alerts/check 매시간 수정
+- **멀티유저**: 가족 4명 개인화 브리핑 지원 (telegram_users 테이블, /start 명령어)
 
 자세한 내용: [`docs/project/improvement-plan.md`](docs/project/improvement-plan.md)
 
