@@ -8,17 +8,19 @@
 
 ## 현황 진단 요약
 
-> 최종 업데이트: 2026-03-05 — I-01~I-15 전체 완료, DB 마이그레이션 Supabase 적용 완료
+> 최종 업데이트: 2026-03-06 — I-01~I-21 전체 완료/검토, 멀티유저 지원 반영, features.md AC 122개 체크 완료
 
 | 영역 | 평가 | 조치 내용 |
 |------|------|-----------|
 | 보안 | ✅ | I-01: webhook debug_error 제거 완료 |
 | 안정성 | ✅ | I-02: UPSERT + DB UNIQUE constraint로 race condition 해결 |
 | 코드 품질 | ✅ | I-04~I-08: URL 통합, recencyScore, SDK 버전, Tailwind, 가중치 정규화 |
-| 테스트 | ✅ | I-09~I-10: race condition / 타임존 경계값 테스트 추가. 989/989 통과 |
-| DB 성능 | ✅ | I-11: 복합 인덱스 4개 + I-15: api_usage_log 인덱스 2개 Supabase 적용 완료 |
+| 테스트 | ✅ | I-09~I-10, I-19: race condition / 타임존 / telegram-users 테스트. 1007/1007 통과 |
+| DB 성능 | ✅ | I-11: 복합 인덱스 4개 + I-15: api_usage_log 인덱스 2개 + I-16: 멀티유저 스키마 |
 | 관측성 | ✅ | I-13~I-15: 표준 로거, cron 타임아웃, API 비용 추적 |
-| 문서 | ✅ | improvement-plan.md 작성 및 전체 완료 반영 |
+| 멀티유저 | ✅ | I-16~I-18: 가족 4명 개인화 브리핑 지원 (014_multi_user.sql) |
+| 문서 | ✅ | features.md AC 122개 체크 완료 (I-21), improvement-plan 최신화 |
+| 운영 모니터링 | ✅ | I-20: alerts/check cron `0 * * * *` (매시간)으로 수정 완료 |
 
 ---
 
@@ -123,6 +125,49 @@
 
 ---
 
+---
+
+## Phase 5 — 멀티유저 지원 ✅ 완료 (2026-03-05)
+
+### I-16: telegram_users 테이블 + 멀티유저 DB 스키마
+- **파일**: `supabase/migrations/014_multi_user.sql`
+- **내용**:
+  - `telegram_users` 테이블 신규 생성 (telegram_id ↔ UUID 매핑)
+  - `briefings`, `user_interactions`, `interest_profile`, `cortex_settings`, `alert_log`에 `user_id FK` 추가
+  - `NULLS NOT DISTINCT` unique index로 NULL user_id 레거시 데이터 호환 유지
+
+### I-17: 멀티유저 브리핑 발송 파이프라인
+- **파일**: `app/api/cron/send-briefing/route.ts`, `lib/telegram-users.ts`
+- **내용**:
+  - `getActiveUsers()` 기반 유저별 루프 + `Promise.allSettled` 병렬 발송
+  - `fatigue-prevention`, `scoring`, `topic-extractor` 함수에 `userId` 파라미터 추가
+  - `/start` 명령어: 가족 구성원 자동 등록 (`upsertTelegramUser`)
+
+### I-18: 멀티유저 웹 API user_id 격리
+- **파일**: 웹 API 라우트 전반
+- **내용**: 인증된 사용자의 `user_id`로 데이터 격리 (briefings, interactions, profile 등)
+
+### I-19: telegram-users.ts 단위 테스트 ✅ 완료 (2026-03-06)
+- **파일**: `tests/unit/telegram-users.test.ts` (신규)
+- **내용**: `getUserByTelegramId`, `getActiveUsers`, `upsertTelegramUser`, `handleStart` 16개 테스트
+
+---
+
+## Phase 6 — 신규 개선 항목 (2026-03-06 발굴)
+
+### I-20: alerts/check cron 스케줄 수정 ✅ 완료 (2026-03-06)
+- **파일**: `vercel.json`
+- **문제**: `alerts/check`가 `0 2 * * *` (하루 1회)으로 잘못 설정됨
+- **F-15 AC1 명세**: "1시간마다 Vercel Cron이 긴급 알림 트리거를 체크한다"
+- **해결**: `0 * * * *` (매시간 정각 UTC)으로 변경
+- **주의**: Vercel Pro 이상 플랜 필요 (Free는 1일 1회 제한)
+
+### I-21: features.md 인수조건 체크 완료
+- **파일**: `docs/project/features.md`
+- **내용**: F-01~F-24 전체 122개 AC를 `[x]` 체크 완료 (2026-03-06)
+
+---
+
 ## 우선순위 요약
 
 | ID | 제목 | 우선순위 | 예상 공수 |
@@ -142,3 +187,9 @@
 | I-13 | 로깅 표준화 | ✅ 완료 | 4시간 |
 | I-14 | Cron 타임아웃 대응 | ✅ 완료 | 1일 |
 | I-15 | Claude API 비용 추적 | ✅ 완료 | 4시간 |
+| I-16 | telegram_users + 멀티유저 DB 스키마 | ✅ 완료 | 4시간 |
+| I-17 | 멀티유저 브리핑 발송 파이프라인 | ✅ 완료 | 1일 |
+| I-18 | 멀티유저 웹 API user_id 격리 | ✅ 완료 | 4시간 |
+| I-19 | telegram-users.ts 단위 테스트 | ✅ 완료 | 1시간 |
+| I-20 | alerts/check cron 스케줄 수정 | ✅ 완료 | 30분 |
+| I-21 | features.md AC 체크 완료 | ✅ 완료 | 30분 |
