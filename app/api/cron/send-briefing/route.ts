@@ -372,26 +372,48 @@ async function sendBriefingToUser(params: {
       }
     }
 
-    // ─── 6. 텔레그램 발송 ──────────────────────────────────────────────
+    // ─── 6. 텔레그램 발송 (F-06 AC6: 실패 시 1회 재시도) ────────────────
     let telegramSent = false;
     let telegramMessageId: number | undefined;
 
-    try {
-      const result = await sendBriefing(briefingText, WEB_URL, chatId);
-      telegramSent = true;
-      telegramMessageId = result.messageId;
-    } catch (sendError) {
-      const errMsg = sendError instanceof Error ? sendError.message : String(sendError);
+    let lastSendError: Error | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        if (attempt > 0) {
+          // 재시도 전 2초 대기 (일시적 네트워크/API 오류 대응)
+          await new Promise((resolve) => setTimeout(resolve, 2_000));
+        }
+        const result = await sendBriefing(briefingText, WEB_URL, chatId);
+        telegramSent = true;
+        telegramMessageId = result.messageId;
+        lastSendError = null;
+        break;
+      } catch (sendError) {
+        lastSendError = sendError instanceof Error ? sendError : new Error(String(sendError));
+        // eslint-disable-next-line no-console
+        console.warn(JSON.stringify({
+          event: 'cortex_send_briefing_telegram_attempt_failed',
+          user_id: userId,
+          display_name: displayName,
+          attempt: attempt + 1,
+          error: lastSendError.message,
+          date: todayKst,
+          mode,
+        }));
+      }
+    }
+
+    if (!telegramSent && lastSendError) {
       // eslint-disable-next-line no-console
       console.error(JSON.stringify({
         event: 'cortex_send_briefing_telegram_error',
         user_id: userId,
         display_name: displayName,
-        error: errMsg,
+        error: lastSendError.message,
         date: todayKst,
         mode,
       }));
-      return { ...baseResult, success: false, channels: channelCounts, error: `텔레그램 발송 실패: ${errMsg}` };
+      return { ...baseResult, success: false, channels: channelCounts, error: `텔레그램 발송 실패: ${lastSendError.message}` };
     }
 
     // ─── 7. briefings 테이블에 발송 기록 저장 ────────────────────────────

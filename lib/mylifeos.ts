@@ -5,6 +5,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { CLAUDE_HAIKU_MODEL } from './constants';
 
 // ─── 인터페이스 ──────────────────────────────────────────────────────────────
 
@@ -28,19 +29,6 @@ export interface KeywordContext {
 export interface SyncResult {
   synced: number;
   expired: number;
-}
-
-// 하위 호환 인터페이스 (기존 코드 지원)
-export interface DiaryKeywords {
-  sourceId: string;
-  keywords: string[];
-  date: string;
-}
-
-export interface TodoKeywords {
-  sourceId: string;
-  keywords: string[];
-  title: string;
 }
 
 // ─── 키워드 TTL 설정 ──────────────────────────────────────────────────────────
@@ -67,7 +55,7 @@ async function extractKeywordsFromText(text: string): Promise<string[]> {
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-20250514',
+      model: CLAUDE_HAIKU_MODEL,
       max_tokens: 256,
       system: DIARY_KEYWORD_SYSTEM_PROMPT,
       messages: [
@@ -422,86 +410,3 @@ export async function getActiveKeywords(supabase: SupabaseClient): Promise<Keywo
   }
 }
 
-// ─── 하위 호환 함수 (기존 코드 지원) ─────────────────────────────────────────
-
-/**
- * 최근 N일 일기에서 키워드 추출 (하위 호환 래퍼)
- * @deprecated extractDiaryKeywords(supabase) 사용 권장
- */
-export async function getRecentDiaryKeywords(days = 7): Promise<DiaryKeywords[]> {
-  if (process.env.MYLIFEOS_INTEGRATION_ENABLED !== 'true') {
-    return [];
-  }
-
-  const { createServerClient } = await import('./supabase/server');
-  const supabase = createServerClient();
-
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-
-  const { data, error } = await supabase
-    .from('diary_entries')
-    .select('id, content, created_at')
-    .gte('created_at', since.toISOString())
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(`diary_entries 조회 실패: ${error.message}`);
-  }
-
-  if (!data || data.length === 0) {
-    return [];
-  }
-
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return [];
-  }
-
-  const results: DiaryKeywords[] = [];
-  for (const entry of data) {
-    const keywords = await extractKeywordsFromText(entry.content as string);
-    if (keywords.length > 0) {
-      results.push({
-        sourceId: entry.id as string,
-        keywords,
-        date: (entry.created_at as string).slice(0, 10),
-      });
-    }
-  }
-
-  return results;
-}
-
-/**
- * 미완료 할일에서 키워드 추출 (하위 호환 래퍼)
- * @deprecated extractTodoKeywords(supabase) 사용 권장
- */
-export async function getActiveTodoKeywords(): Promise<TodoKeywords[]> {
-  if (process.env.MYLIFEOS_INTEGRATION_ENABLED !== 'true') {
-    return [];
-  }
-
-  const { createServerClient } = await import('./supabase/server');
-  const supabase = createServerClient();
-
-  const { data, error } = await supabase
-    .from('todos')
-    .select('id, title')
-    .eq('completed', false)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  if (error) {
-    throw new Error(`todos 조회 실패: ${error.message}`);
-  }
-
-  if (!data || data.length === 0) {
-    return [];
-  }
-
-  return data.map((todo) => ({
-    sourceId: todo.id as string,
-    keywords: extractKeywordsFromTitle(todo.title as string),
-    title: todo.title as string,
-  }));
-}

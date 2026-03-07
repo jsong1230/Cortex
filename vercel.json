@@ -8,6 +8,7 @@
     { "path": "/api/context/sync", "schedule": "0 21 * * *" },
     { "path": "/api/cron/snapshot-scores", "schedule": "0 14 * * *" },
     { "path": "/api/cron/reading-loop", "schedule": "0 15 * * *" },
-    { "path": "/api/cron/monthly-report", "schedule": "0 1 1 * *" }
+    { "path": "/api/cron/monthly-report", "schedule": "0 1 1 * *" },
+    { "path": "/api/cron/cleanup", "schedule": "0 4 * * 1" }
   ]
 }

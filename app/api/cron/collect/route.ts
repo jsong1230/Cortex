@@ -179,13 +179,7 @@ async function updateSummaries(updates: SummaryUpdateRecord[]): Promise<number> 
       .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
       .map((r) => String(r.reason))
       .slice(0, 5); // 최대 5개만 로깅
-    // eslint-disable-next-line no-console
-    console.error(JSON.stringify({
-      event: 'cortex_update_summaries_partial_fail',
-      failed: failedCount,
-      total: updates.length,
-      reasons: failedReasons,
-    }));
+    log({ event: 'cortex_update_summaries_partial_fail', level: 'error', data: { failed: failedCount, total: updates.length, reasons: failedReasons } });
   }
 
   return failedCount;
@@ -400,6 +394,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       result.errors.push(`CLAUDE_API_FAILED: ${errorMessage}`);
     }
   }
+
+  // 이슈 3: 채널별 수집 결과 summary 로그 (0개 채널은 경고)
+  const emptyChannels = Object.entries(result.collected)
+    .filter(([, count]) => count === 0)
+    .map(([ch]) => ch);
+
+  if (emptyChannels.length > 0) {
+    log({
+      event: 'cortex_collect_channel_empty',
+      level: 'warn',
+      data: { empty_channels: emptyChannels, collected: result.collected },
+    });
+  }
+
+  log({
+    event: 'cortex_collect_complete',
+    data: {
+      collected: result.collected,
+      summarized: result.summarized,
+      cached: result.cached,
+      duplicates_skipped: result.duplicatesSkipped,
+      error_count: result.errors.length,
+    },
+  });
 
   return NextResponse.json({ success: true, data: result });
 }

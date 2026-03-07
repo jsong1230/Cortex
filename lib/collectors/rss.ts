@@ -3,6 +3,7 @@
 
 import Parser from 'rss-parser';
 import type { CollectedItem, Channel } from './types';
+import { log } from '@/lib/utils/logger';
 
 const parser = new Parser({
   timeout: 10000,
@@ -96,7 +97,7 @@ export async function collectMultipleRssFeeds(
       collected.push(...result.value);
     } else {
       // 개별 피드 실패는 전체 파이프라인을 중단하지 않음
-      console.error(`RSS 수집 실패 [${configs[index].source}]: ${result.reason?.message ?? 'Unknown error'}`);
+      log({ event: 'cortex_rss_feed_error', level: 'error', data: { source: configs[index]?.source }, error: result.reason });
     }
   });
 

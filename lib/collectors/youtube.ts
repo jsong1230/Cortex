@@ -2,6 +2,7 @@
 // GET https://www.googleapis.com/youtube/v3/videos
 
 import type { CollectedItem } from './types';
+import { log } from '@/lib/utils/logger';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 const TRENDING_TOP = 10;
@@ -14,7 +15,7 @@ const DESCRIPTION_MAX_LENGTH = 500;
 async function fetchYouTubeTrending(limit: number): Promise<CollectedItem[]> {
   const apiKey = process.env.YOUTUBE_DATA_API_KEY;
   if (!apiKey) {
-    console.error('YOUTUBE_DATA_API_KEY가 설정되지 않았습니다. 유튜브 수집을 건너뜁니다.');
+    log({ event: 'cortex_youtube_skip', level: 'warn', data: { reason: 'YOUTUBE_DATA_API_KEY 미설정' } });
     return [];
   }
 

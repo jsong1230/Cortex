@@ -3,6 +3,7 @@
 // OPENAI_API_KEY 미설정 시 graceful degradation (빈 벡터 반환)
 
 import { createServerClient } from '@/lib/supabase/server';
+import { log } from '@/lib/utils/logger';
 
 const OPENAI_EMBEDDING_URL = 'https://api.openai.com/v1/embeddings';
 const EMBEDDING_MODEL = 'text-embedding-3-small';
@@ -61,14 +62,11 @@ export async function generateEmbedding(text: string): Promise<EmbeddingResult> 
     if (!response.ok) {
       // API 오류: graceful degradation
       const errorBody = (await response.json()) as OpenAiErrorResponse;
-      // eslint-disable-next-line no-console
-      console.warn(
-        JSON.stringify({
-          event: 'cortex_embedding_api_error',
-          status: response.status,
-          error: errorBody?.error?.message ?? 'unknown',
-        })
-      );
+      log({
+        event: 'cortex_embedding_api_error',
+        level: 'warn',
+        data: { status: response.status, error: errorBody?.error?.message ?? 'unknown' },
+      });
       return { embedding: [], tokensUsed: 0 };
     }
 
@@ -79,14 +77,7 @@ export async function generateEmbedding(text: string): Promise<EmbeddingResult> 
     };
   } catch (err) {
     // 네트워크 오류: graceful degradation
-    const errMsg = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
-    console.warn(
-      JSON.stringify({
-        event: 'cortex_embedding_network_error',
-        error: errMsg,
-      })
-    );
+    log({ event: 'cortex_embedding_network_error', level: 'warn', error: err });
     return { embedding: [], tokensUsed: 0 };
   }
 }
@@ -123,27 +114,13 @@ export async function searchSimilar(
 
     if (error) {
       // DB 오류: graceful degradation
-      // eslint-disable-next-line no-console
-      console.warn(
-        JSON.stringify({
-          event: 'cortex_embedding_search_error',
-          rpc: rpcName,
-          error: error.message,
-        })
-      );
+      log({ event: 'cortex_embedding_search_error', level: 'warn', data: { rpc: rpcName, error: error.message } });
       return [];
     }
 
     return (data as RpcResultItem[]).map((item) => item.id);
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    // eslint-disable-next-line no-console
-    console.warn(
-      JSON.stringify({
-        event: 'cortex_embedding_search_exception',
-        error: errMsg,
-      })
-    );
+    log({ event: 'cortex_embedding_search_exception', level: 'warn', error: err });
     return [];
   }
 }

@@ -5,6 +5,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Channel } from './collectors/types';
 import { log } from './utils/logger';
+import { CLAUDE_SONNET_MODEL } from './constants';
 
 // Claude API 재시도 설정
 const MAX_RETRIES = 1;
@@ -174,7 +175,7 @@ async function callClaudeAPI(
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: CLAUDE_SONNET_MODEL,
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: prompt }],

@@ -4,6 +4,7 @@
 // AC3: "이번 주 당신의 관심은 {토픽}에 집중됐어요" AI 한줄 포커스 코멘트
 
 import Anthropic from '@anthropic-ai/sdk';
+import { CLAUDE_SONNET_MODEL } from './constants';
 
 // ─── 타입 정의 ────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ async function callClaude(prompt: string): Promise<string> {
   const anthropic = getAnthropicClient();
 
   const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: CLAUDE_SONNET_MODEL,
     max_tokens: 512,
     system: WEEKLY_SUMMARY_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: prompt }],

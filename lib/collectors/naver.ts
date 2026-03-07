@@ -3,6 +3,7 @@
 
 import * as cheerio from 'cheerio';
 import type { CollectedItem } from './types';
+import { log } from '@/lib/utils/logger';
 
 const NAVER_DATALAB_URL = 'https://openapi.naver.com/v1/datalab/search';
 const REALTIME_LIMIT = 5;
@@ -58,7 +59,7 @@ export async function collectNaverDatalabTrend(): Promise<CollectedItem[]> {
   const clientSecret = process.env.NAVER_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.warn('NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET이 설정되지 않았습니다. 데이터랩 수집을 건너뜁니다.');
+    log({ event: 'cortex_naver_datalab_skip', level: 'warn', data: { reason: 'NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 미설정' } });
     return [];
   }
 
