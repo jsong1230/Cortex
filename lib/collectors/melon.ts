@@ -25,7 +25,8 @@ export async function collectMelonChart(): Promise<CollectedItem[]> {
 
   const html = await response.text();
   const $ = cheerio.load(html);
-  const today = new Date().toISOString().slice(0, 10);
+  // KST 기준 오늘 날짜 — cron이 21:30 UTC(06:30 KST)에 실행되므로 KST 날짜 사용
+  const todayKst = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 
   const items: CollectedItem[] = [];
 
@@ -46,12 +47,14 @@ export async function collectMelonChart(): Promise<CollectedItem[]> {
 
     if (!songName || !artistName) return;
 
+    // source_url에 KST 날짜 포함: 당일 중복 방지 (같은 날 여러 번 수집 시 upsert)
+    // tags에 아티스트·곡명을 포함: detectRepeatingIssues가 특정 곡을 정확히 식별하도록
     items.push({
       channel: 'culture',
       source: 'melon',
-      source_url: `https://www.melon.com/song/detail.htm?songId=${songId}&date=${today}`,
+      source_url: `https://www.melon.com/song/detail.htm?songId=${songId}&chart_date=${todayKst}`,
       title: `${rank}. ${artistName} - ${songName}`,
-      tags: ['music', 'melon'],
+      tags: ['music', 'melon', artistName, songName],
       published_at: new Date(),
     });
   });

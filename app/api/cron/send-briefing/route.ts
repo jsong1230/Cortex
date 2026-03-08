@@ -273,9 +273,13 @@ async function sendBriefingToUser(params: {
 
         const repeatingIds = detectRepeatingIssues(selectedItems, pastItemsList);
         if (repeatingIds.size > 0) {
-          selectedItems = selectedItems.map((item) =>
-            repeatingIds.has(item.id) ? markAsFollowing(item) : item,
-          );
+          // culture 채널 아이템(멜론 차트 등 반복 콘텐츠)은 제거,
+          // 그 외 채널(뉴스성 스토리)은 "계속 팔로우 중" 마킹 유지
+          selectedItems = selectedItems
+            .filter((item) => !(repeatingIds.has(item.id) && item.channel === 'culture'))
+            .map((item) =>
+              repeatingIds.has(item.id) ? markAsFollowing(item) : item,
+            );
         }
       }
     } catch {
