@@ -1,5 +1,6 @@
 // F-02: WorldCollector 오케스트레이터 단위 테스트
 // test-spec.md: WorldCollector 및 교차 소스 가중치, 카테고리 태그 섹션 참조
+// 2026-03-12: 소스 교체 반영 (정치/사회 제거, 글로벌 비즈니스 추가)
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { CollectedItem } from '@/lib/collectors/types';
@@ -56,18 +57,16 @@ describe('WorldCollector', () => {
   });
 
   describe('collect()', () => {
-    it('7개 RSS 피드 모두 성공 시 items가 있고 errors는 빈 배열이다', async () => {
-      // Arrange
+    it('6개 RSS 피드 모두 성공 시 items가 있고 errors는 빈 배열이다', async () => {
+      // Arrange: 새로운 소스 구성 (정치/사회 제거, 글로벌 비즈니스 추가)
       const mockItems = [
-        makeWorldItem('naver_politics', '정치 뉴스 1'),
         makeWorldItem('naver_economy', '경제 뉴스 1'),
-        makeWorldItem('naver_society', '사회 뉴스 1'),
-        makeWorldItem('naver_it', 'IT 뉴스 1'),
-        makeWorldItem('daum_news', '다음 뉴스 1'),
         makeWorldItem('yonhap', '연합뉴스 1'),
         makeWorldItem('bbc_korea', 'BBC Korea 1'),
+        makeWorldItem('bloomberg_kr', '블룸버그 뉴스 1'),
+        makeWorldItem('coindesk_kr', '코인데스크 뉴스 1'),
+        makeWorldItem('techcrunch', 'TechCrunch 뉴스 1'),
       ];
-      // collectMultipleRssFeeds는 RssCollectedItem을 반환하므로 변환 형태로 모킹
       vi.mocked(collectMultipleRssFeeds).mockResolvedValue(
         mockItems.map((item) => ({
           channel: item.channel,
@@ -87,10 +86,10 @@ describe('WorldCollector', () => {
     });
 
     it('일부 피드 실패 시 성공한 피드 데이터가 포함된다', async () => {
-      // Arrange: 일부 피드만 반환 (나머지 실패)
+      // Arrange: 일부 피드만 반환
       const mockItems = [
         makeWorldItem('naver_economy', '경제 뉴스 1'),
-        makeWorldItem('daum_news', '다음 뉴스 1'),
+        makeWorldItem('techcrunch', 'TechCrunch 뉴스 1'),
       ];
       vi.mocked(collectMultipleRssFeeds).mockResolvedValue(
         mockItems.map((item) => ({
@@ -124,8 +123,8 @@ describe('WorldCollector', () => {
     it('모든 아이템의 channel이 world이다', async () => {
       // Arrange
       vi.mocked(collectMultipleRssFeeds).mockResolvedValue([
-        { channel: 'world', source: 'naver_politics', sourceUrl: 'https://ex.com/1', title: '정치 뉴스' },
-        { channel: 'world', source: 'daum_news', sourceUrl: 'https://ex.com/2', title: '다음 뉴스' },
+        { channel: 'world', source: 'naver_economy', sourceUrl: 'https://ex.com/1', title: '경제 뉴스' },
+        { channel: 'world', source: 'techcrunch', sourceUrl: 'https://ex.com/2', title: 'TechCrunch 뉴스' },
       ] as ReturnType<typeof collectMultipleRssFeeds> extends Promise<infer T> ? T : never);
 
       // Act
@@ -138,8 +137,8 @@ describe('WorldCollector', () => {
     it('source가 올바르게 매핑된다', async () => {
       // Arrange
       vi.mocked(collectMultipleRssFeeds).mockResolvedValue([
-        { channel: 'world', source: 'naver_politics', sourceUrl: 'https://ex.com/1', title: '정치 뉴스' },
-        { channel: 'world', source: 'daum_news', sourceUrl: 'https://ex.com/2', title: '다음 뉴스' },
+        { channel: 'world', source: 'naver_economy', sourceUrl: 'https://ex.com/1', title: '경제 뉴스' },
+        { channel: 'world', source: 'bloomberg_kr', sourceUrl: 'https://ex.com/2', title: '블룸버그 뉴스' },
       ] as ReturnType<typeof collectMultipleRssFeeds> extends Promise<infer T> ? T : never);
 
       // Act
@@ -147,29 +146,43 @@ describe('WorldCollector', () => {
 
       // Assert
       const sources = result.items.map((item) => item.source);
-      expect(sources).toContain('naver_politics');
-      expect(sources).toContain('daum_news');
+      expect(sources).toContain('naver_economy');
+      expect(sources).toContain('bloomberg_kr');
     });
 
-    it('naver_politics 소스 아이템에 politics 태그가 포함된다', async () => {
+    it('bloomberg_kr 소스 아이템에 global_business 태그가 포함된다', async () => {
       // Arrange
       vi.mocked(collectMultipleRssFeeds).mockResolvedValue([
-        { channel: 'world', source: 'naver_politics', sourceUrl: 'https://ex.com/1', title: '정치 뉴스' },
+        { channel: 'world', source: 'bloomberg_kr', sourceUrl: 'https://ex.com/1', title: '블룸버그 뉴스' },
       ] as ReturnType<typeof collectMultipleRssFeeds> extends Promise<infer T> ? T : never);
 
       // Act
       const result = await collector.collect();
 
       // Assert
-      const politicsItem = result.items.find((item) => item.source === 'naver_politics');
-      expect(politicsItem?.tags).toContain('politics');
+      const bloombergItem = result.items.find((item) => item.source === 'bloomberg_kr');
+      expect(bloombergItem?.tags).toContain('global_business');
+    });
+
+    it('coindesk_kr 소스 아이템에 crypto_blockchain 태그가 포함된다', async () => {
+      // Arrange
+      vi.mocked(collectMultipleRssFeeds).mockResolvedValue([
+        { channel: 'world', source: 'coindesk_kr', sourceUrl: 'https://ex.com/1', title: '코인데스크 뉴스' },
+      ] as ReturnType<typeof collectMultipleRssFeeds> extends Promise<infer T> ? T : never);
+
+      // Act
+      const result = await collector.collect();
+
+      // Assert
+      const coindeskItem = result.items.find((item) => item.source === 'coindesk_kr');
+      expect(coindeskItem?.tags).toContain('crypto_blockchain');
     });
 
     it('아이템이 200개이면 상위 15개 이하로 선별된다', async () => {
       // Arrange: 200개 아이템
       const manyItems = Array.from({ length: 200 }, (_, i) => ({
         channel: 'world' as const,
-        source: 'naver_politics',
+        source: 'naver_economy',
         sourceUrl: `https://ex.com/${i}`,
         title: `뉴스 ${i}`,
       }));
@@ -190,9 +203,9 @@ describe('scoreByCrossSourceAppearance', () => {
   it('동일 이슈가 3개 소스에서 등장 시 crossSourceScore가 3 이상이다', () => {
     // Arrange: 동일 이슈 제목이 3개 소스에서 등장
     const items: CollectedItem[] = [
-      makeWorldItem('naver_politics', '윤 대통령 탄핵 가결'),
-      makeWorldItem('daum_news', '윤 대통령 탄핵 가결'),
-      makeWorldItem('yonhap', '윤 대통령 탄핵 가결'),
+      makeWorldItem('naver_economy', '삼성전자 반도체 투자 확대'),
+      makeWorldItem('bloomberg_kr', '삼성전자 반도체 투자 확대'),
+      makeWorldItem('yonhap', '삼성전자 반도체 투자 확대'),
     ];
 
     // Act
@@ -206,7 +219,7 @@ describe('scoreByCrossSourceAppearance', () => {
   it('단일 소스 이슈의 crossSourceScore는 1이다', () => {
     // Arrange: 유일한 이슈 1개
     const items: CollectedItem[] = [
-      makeWorldItem('naver_politics', '특정 이슈 단독 보도'),
+      makeWorldItem('techcrunch', '특정 이슈 단독 보도'),
     ];
 
     // Act
@@ -220,7 +233,7 @@ describe('scoreByCrossSourceAppearance', () => {
     // Arrange: 키워드 교집합 > 0.5인 제목
     const items: CollectedItem[] = [
       makeWorldItem('naver_economy', '삼성전자 반도체 투자 확대'),
-      makeWorldItem('daum_news', '삼성전자 반도체 투자 20조'),
+      makeWorldItem('bloomberg_kr', '삼성전자 반도체 투자 20조'),
     ];
 
     // Act
@@ -234,8 +247,8 @@ describe('scoreByCrossSourceAppearance', () => {
   it('완전히 다른 제목은 다른 이슈로 판정한다', () => {
     // Arrange
     const items: CollectedItem[] = [
-      makeWorldItem('naver_politics', '기후변화 대응'),
-      makeWorldItem('daum_news', '프로야구 개막'),
+      makeWorldItem('naver_economy', '금리 인하 전망'),
+      makeWorldItem('techcrunch', 'AI 스타트업 펀딩'),
     ];
 
     // Act
@@ -249,8 +262,8 @@ describe('scoreByCrossSourceAppearance', () => {
     // Arrange: 서로 다른 crossSourceScore를 가진 아이템
     const items: CollectedItem[] = [
       makeWorldItem('source1', '단일 이슈'),
-      makeWorldItem('naver_politics', '공통 이슈 키워드'),
-      makeWorldItem('daum_news', '공통 이슈 키워드'),
+      makeWorldItem('naver_economy', '공통 이슈 키워드'),
+      makeWorldItem('bloomberg_kr', '공통 이슈 키워드'),
       makeWorldItem('yonhap', '공통 이슈 키워드'),
     ];
 
@@ -303,24 +316,9 @@ describe('scoreByCrossSourceAppearance', () => {
 });
 
 describe('extractCategoryTag', () => {
-  it('naver_politics -> politics 태그를 반환한다', () => {
-    expect(extractCategoryTag('naver_politics')).toEqual(['politics']);
-  });
-
+  // 새로운 소스 태그 테스트
   it('naver_economy -> economy 태그를 반환한다', () => {
     expect(extractCategoryTag('naver_economy')).toEqual(['economy']);
-  });
-
-  it('naver_society -> society 태그를 반환한다', () => {
-    expect(extractCategoryTag('naver_society')).toEqual(['society']);
-  });
-
-  it('naver_it -> it_science 태그를 반환한다', () => {
-    expect(extractCategoryTag('naver_it')).toEqual(['it_science']);
-  });
-
-  it('daum_news -> general 태그를 반환한다', () => {
-    expect(extractCategoryTag('daum_news')).toEqual(['general']);
   });
 
   it('yonhap -> general 태그를 반환한다', () => {
@@ -329,6 +327,18 @@ describe('extractCategoryTag', () => {
 
   it('bbc_korea -> international 태그를 반환한다', () => {
     expect(extractCategoryTag('bbc_korea')).toEqual(['international']);
+  });
+
+  it('bloomberg_kr -> global_business 태그를 반환한다', () => {
+    expect(extractCategoryTag('bloomberg_kr')).toEqual(['global_business']);
+  });
+
+  it('coindesk_kr -> crypto_blockchain 태그를 반환한다', () => {
+    expect(extractCategoryTag('coindesk_kr')).toEqual(['crypto_blockchain']);
+  });
+
+  it('techcrunch -> tech_business 태그를 반환한다', () => {
+    expect(extractCategoryTag('techcrunch')).toEqual(['tech_business']);
   });
 
   it('미등록 소스 -> 빈 배열을 반환한다', () => {
@@ -341,28 +351,27 @@ describe('collectMultipleRssFeeds WORLD 연동', () => {
     vi.clearAllMocks();
   });
 
-  it('WORLD 피드 설정 7개를 전달하면 7개 피드를 병렬 호출한다', async () => {
+  it('WORLD 피드 설정 6개를 전달하면 6개 피드를 병렬 호출한다', async () => {
     // Arrange
     vi.mocked(collectMultipleRssFeeds).mockResolvedValue([]);
 
     const collector = new WorldCollector();
     await collector.collect();
 
-    // Assert: collectMultipleRssFeeds가 7개 설정으로 호출됨
+    // Assert: collectMultipleRssFeeds가 6개 설정으로 호출됨 (정치/사회/다음 제거, 블룸버그/코인데스크/테크크런치 추가)
     expect(vi.mocked(collectMultipleRssFeeds)).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ source: 'naver_politics' }),
         expect.objectContaining({ source: 'naver_economy' }),
-        expect.objectContaining({ source: 'naver_society' }),
-        expect.objectContaining({ source: 'naver_it' }),
-        expect.objectContaining({ source: 'daum_news' }),
         expect.objectContaining({ source: 'yonhap' }),
         expect.objectContaining({ source: 'bbc_korea' }),
+        expect.objectContaining({ source: 'bloomberg_kr' }),
+        expect.objectContaining({ source: 'coindesk_kr' }),
+        expect.objectContaining({ source: 'techcrunch' }),
       ])
     );
   });
 
-  it('네이버 정치 RSS는 limit 20으로 설정된다', async () => {
+  it('네이버 경제 RSS는 limit 20으로 설정된다', async () => {
     // Arrange
     vi.mocked(collectMultipleRssFeeds).mockResolvedValue([]);
 
@@ -372,12 +381,12 @@ describe('collectMultipleRssFeeds WORLD 연동', () => {
     // Assert
     expect(vi.mocked(collectMultipleRssFeeds)).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ source: 'naver_politics', limit: 20 }),
+        expect.objectContaining({ source: 'naver_economy', limit: 20 }),
       ])
     );
   });
 
-  it('다음 뉴스 RSS는 limit 50으로 설정된다', async () => {
+  it('연합뉴스 RSS는 limit 30으로 설정된다 (기존 100에서 축소)', async () => {
     // Arrange
     vi.mocked(collectMultipleRssFeeds).mockResolvedValue([]);
 
@@ -387,12 +396,12 @@ describe('collectMultipleRssFeeds WORLD 연동', () => {
     // Assert
     expect(vi.mocked(collectMultipleRssFeeds)).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ source: 'daum_news', limit: 50 }),
+        expect.objectContaining({ source: 'yonhap', limit: 30 }),
       ])
     );
   });
 
-  it('연합뉴스 RSS는 limit 100으로 설정된다', async () => {
+  it('블룸버그 한국 RSS는 limit 20으로 설정된다', async () => {
     // Arrange
     vi.mocked(collectMultipleRssFeeds).mockResolvedValue([]);
 
@@ -402,7 +411,37 @@ describe('collectMultipleRssFeeds WORLD 연동', () => {
     // Assert
     expect(vi.mocked(collectMultipleRssFeeds)).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ source: 'yonhap', limit: 100 }),
+        expect.objectContaining({ source: 'bloomberg_kr', limit: 20 }),
+      ])
+    );
+  });
+
+  it('코인데스크 한국 RSS는 limit 15으로 설정된다', async () => {
+    // Arrange
+    vi.mocked(collectMultipleRssFeeds).mockResolvedValue([]);
+
+    const collector = new WorldCollector();
+    await collector.collect();
+
+    // Assert
+    expect(vi.mocked(collectMultipleRssFeeds)).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'coindesk_kr', limit: 15 }),
+      ])
+    );
+  });
+
+  it('TechCrunch RSS는 limit 20으로 설정된다', async () => {
+    // Arrange
+    vi.mocked(collectMultipleRssFeeds).mockResolvedValue([]);
+
+    const collector = new WorldCollector();
+    await collector.collect();
+
+    // Assert
+    expect(vi.mocked(collectMultipleRssFeeds)).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'techcrunch', limit: 20 }),
       ])
     );
   });

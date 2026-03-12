@@ -6,14 +6,16 @@ import { safeCollect } from './utils';
 import { collectMultipleRssFeeds } from './rss';
 import type { RssFeedConfig } from './rss';
 
+// WORLD 채널 RSS 피드 (2026-03-12 개선: 정치/사회 제거, 글로벌 비즈니스 추가)
 const WORLD_RSS_FEEDS: RssFeedConfig[] = [
-  { url: 'https://news.naver.com/main/rss/politics.nhn', source: 'naver_politics', channel: 'world', limit: 20 },
+  // 한국 뉴스 (경제 중심)
   { url: 'https://news.naver.com/main/rss/economy.nhn', source: 'naver_economy', channel: 'world', limit: 20 },
-  { url: 'https://news.naver.com/main/rss/society.nhn', source: 'naver_society', channel: 'world', limit: 20 },
-  { url: 'https://news.naver.com/main/rss/it.nhn', source: 'naver_it', channel: 'world', limit: 20 },
-  { url: 'https://news.daum.net/rss', source: 'daum_news', channel: 'world', limit: 50 },
-  { url: 'https://www.yonhapnewstv.co.kr/browse/feed/', source: 'yonhap', channel: 'world', limit: 100 },
+  { url: 'https://www.yonhapnewstv.co.kr/browse/feed/', source: 'yonhap', channel: 'world', limit: 30 },
   { url: 'https://feeds.bbci.co.uk/korean/rss.xml', source: 'bbc_korea', channel: 'world', limit: 30 },
+  // 글로벌 비즈니스
+  { url: 'https://www.bloomberg.co.kr/news/rss', source: 'bloomberg_kr', channel: 'world', limit: 20 },
+  { url: 'https://www.coindeskkorea.com/feed', source: 'coindesk_kr', channel: 'world', limit: 15 },
+  { url: 'https://techcrunch.com/feed/', source: 'techcrunch', channel: 'world', limit: 20 },
 ];
 
 export interface ScoredItem {
@@ -24,13 +26,12 @@ export interface ScoredItem {
 /** 소스명 -> 카테고리 태그 추출 (테스트용 export) */
 export function extractCategoryTag(source: string): string[] {
   const categoryMap: Record<string, string> = {
-    naver_politics: 'politics',
     naver_economy: 'economy',
-    naver_society: 'society',
-    naver_it: 'it_science',
-    daum_news: 'general',
     yonhap: 'general',
     bbc_korea: 'international',
+    bloomberg_kr: 'global_business',
+    coindesk_kr: 'crypto_blockchain',
+    techcrunch: 'tech_business',
   };
   const tag = categoryMap[source];
   return tag ? [tag] : [];
