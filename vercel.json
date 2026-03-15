@@ -1,14 +1,3 @@
 {
-  "crons": [
-    { "path": "/api/cron/collect", "schedule": "30 21 * * *" },
-    { "path": "/api/cron/send-briefing", "schedule": "0 22 * * 1-5" },
-    { "path": "/api/cron/send-briefing", "schedule": "0 0 * * 0,6" },
-    { "path": "/api/cron/alerts/check", "schedule": "0 2 * * *" },
-    { "path": "/api/cron/archive-topics", "schedule": "0 3 * * 0" },
-    { "path": "/api/context/sync", "schedule": "0 21 * * *" },
-    { "path": "/api/cron/snapshot-scores", "schedule": "0 14 * * *" },
-    { "path": "/api/cron/reading-loop", "schedule": "0 15 * * *" },
-    { "path": "/api/cron/monthly-report", "schedule": "0 1 1 * *" },
-    { "path": "/api/cron/cleanup", "schedule": "0 4 * * 1" }
-  ]
+  "crons": []
 }
